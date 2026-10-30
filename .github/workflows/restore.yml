@@ -1,4 +1,4 @@
-name: Restore AI Clip Studio
+name: Restore AI Clip Studio V14
 
 on:
   push:
@@ -12,11 +12,12 @@ permissions:
 jobs:
   restore:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Restore project files
+      - name: Restore V14 project files
         shell: bash
         run: |
           python - <<'PY'
@@ -25,21 +26,28 @@ jobs:
           import stat
 
           root = Path.cwd().resolve()
-          source = root / "AI-Clip-Studio-Recovered-V13-GitHub-Ready.zip"
+
+          source = root / "AIClipStudio_V14_Fixed_Download.zip"
 
           if not source.is_file():
-              raise SystemExit("Source ZIP not found")
+              raise SystemExit(
+                  "V14 ZIP file not found in repository"
+              )
 
           with ZipFile(source) as archive:
               names = set(archive.namelist())
+
               required = {
                   "ai-clip-studio/Dockerfile",
                   "ai-clip-studio/app.py",
-                  "ai-clip-studio/site/index.html"
+                  "ai-clip-studio/site/index.html",
+                  "ai-clip-studio/v14_semantic.py"
               }
 
               if not required.issubset(names):
-                  raise SystemExit("Missing project files")
+                  raise SystemExit(
+                      "Missing required V14 project files"
+                  )
 
               for item in archive.infolist():
                   target = (root / item.filename).resolve()
@@ -47,27 +55,61 @@ jobs:
                   if not target.is_relative_to(root):
                       raise SystemExit("Unsafe ZIP path")
 
-                  if stat.S_IFMT(item.external_attr >> 16) == stat.S_IFLNK:
-                      raise SystemExit("Symlink not allowed")
+                  mode = item.external_attr >> 16
+                  if stat.S_IFMT(mode) == stat.S_IFLNK:
+                      raise SystemExit("Symlinks not allowed")
 
                   if item.is_dir():
-                      target.mkdir(parents=True, exist_ok=True)
+                      target.mkdir(
+                          parents=True,
+                          exist_ok=True
+                      )
                   else:
-                      target.parent.mkdir(parents=True, exist_ok=True)
-                      target.write_bytes(archive.read(item))
+                      target.parent.mkdir(
+                          parents=True,
+                          exist_ok=True
+                      )
+                      target.write_bytes(
+                          archive.read(item)
+                      )
 
-          print("Project restored successfully")
+          print("AI Clip Studio V14 restored")
           PY
 
-      - name: Save restored source
+      - name: Verify Python code
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          folder = Path("ai-clip-studio")
+          files = sorted(folder.glob("*.py"))
+
+          for file in files:
+              ast.parse(
+                  file.read_text(encoding="utf-8"),
+                  filename=str(file)
+              )
+
+          print("Python syntax validation passed")
+          PY
+
+      - name: Save V14 source to GitHub
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add .dockerignore README-START-HERE.md ai-clip-studio
 
           if ! git diff --cached --quiet; then
-            git commit -m "Restore AI Clip Studio V13 source"
+            git commit -m "Restore AI Clip Studio V14 source"
             git push origin HEAD:main
           fi
+
+      - name: Finish
+        shell: bash
+        run: |
+          echo "AI Clip Studio V14 recovery completed"
           
