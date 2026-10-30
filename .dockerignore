@@ -1,0 +1,11 @@
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/*.pyo
+.git/
+**/.env
+**/.env.*
+**/*.mp4
+**/*.wav
+**/*.zip
+**/test_*.py

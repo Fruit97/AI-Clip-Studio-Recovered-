@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090f1c"><meta name="description" content="AI Clip Studio — สรุปวิดีโอ ตัดคลิปและพากย์ไทยอัตโนมัติ">
+<title>AI Clip Studio — สตูดิโอสรุปคลิปอัจฉริยะ</title>
+<link rel="stylesheet" href="/static/style.css?v=8">
+</head>
+<body>
+<div class="background-grid"></div>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="/"><span class="brand-icon">✦</span><span>AI <b>CLIP</b> STUDIO<small>CREATE • SUMMARIZE • SHARE</small></span></a>
+<div class="nav-end"><span class="online-dot"></span><span class="desktop-only">Video Upload + Gemini</span><a class="help" target="_blank" rel="noopener" href="https://aistudio.google.com/apikey">รับ API Key <span>↗</span></a></div>
+</div></header>
+<main class="wrap">
+<section class="hero"><div class="eyebrow"><span>✧</span> AI VIDEO AUTOMATION <span class="tiny-line"></span> RESTORED • CINEMATIC EDITORIAL</div>
+<h1>เปลี่ยนวิดีโอยาว<br>ให้เป็น<span class="grad">คลิปสรุปสุดปัง</span></h1>
+<p>อัปโหลดวิดีโอจากเครื่อง ให้ Gemini วิเคราะห์เนื้อหา เขียนบท พากย์ภาษาไทย ตัดต่อ และสร้าง MP4 พร้อมแชร์ — ในที่เดียว</p>
+<div class="hero-features"><span>✦ วิเคราะห์ด้วย Gemini</span><span>◉ พากย์ภาษาไทย</span><span>▣ ซับไตเติลอัตโนมัติ</span></div></section>
+<div class="workspace">
+<section class="panel create-panel"><div class="panel-title"><div class="title-marker">01</div><div><h2>สร้างคลิปใหม่</h2><p>อัปโหลด 720p หรือ 1080p • AI จับคู่ภาพกับบทพากย์ • ส่งออก 720×1280 30 FPS</p></div></div>
+<div class="upload-only-banner">✦ โหมดตัดต่อจากไฟล์จริงเท่านั้น — เลือกวิดีโอของคุณ ระบบจะตัดต่อจากภาพเคลื่อนไหวต้นฉบับ</div>
+<form id="studioForm" novalidate>
+<div id="uploadArea" class="uploadzone" tabindex="0" role="button" aria-label="เลือกไฟล์วิดีโอ"><div class="uploadicon">⇧</div><strong id="uploadTitle">ลากไฟล์วิดีโอมาวางที่นี่</strong><span id="uploadHint">หรือแตะเพื่อเลือกไฟล์จากอุปกรณ์</span><span class="format">MP4 · MOV · WEBM · MKV <i></i> สูงสุด 1 GB <i></i> 30 นาที</span><input id="videoFile" name="video" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv" hidden></div>
+<div id="linkArea" class="link-area hidden"><label for="videoUrl">ลิงก์วิดีโอสาธารณะ</label><div class="input-icon"><span>🔗</span><input id="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..."></div><p class="hint">โหมดภาพจริงเท่านั้น: ใช้ภาพจากวิดีโอต้นฉบับมาตัดต่อ หาก YouTube บล็อกการดึงไฟล์บนเซิร์ฟเวอร์ ระบบจะแจ้งข้อผิดพลาด ไม่สร้างภาพตัวหนังสือแทน และไม่ต้องดาวน์โหลดไฟล์ลงมือถือ</p></div>
+<div class="section-head"><h3><span>◈</span> ตั้งค่าวิดีโอ</h3><span class="section-note">ปรับแต่งได้ตามต้องการ</span></div>
+<div class="form-grid"><div class="field"><label>ความยาวเป้าหมาย</label><div class="segment-control" id="lengths"><button type="button" class="choice" data-val="15">15 วิ</button><button type="button" class="choice selected" data-val="30">30 วิ</button><button type="button" class="choice" data-val="60">60 วิ</button></div></div>
+<div class="field"><label>อัตราส่วนภาพ</label><div class="segment-control" id="aspects"><button type="button" class="choice selected" data-val="9:16">▯ 9:16</button></div></div>
+<div class="field"><label for="tone">สไตล์การเล่าเรื่อง</label><select id="tone"><option value="กระชับ น่าติดตาม เหมาะกับคลิปสั้น">⚡ กระชับน่าติดตาม</option><option value="เล่าเรื่องสนุกแบบเพื่อนเล่าให้ฟัง">◉ เล่าเรื่องสนุก</option><option value="นำเสนอข่าวอย่างเป็นกลาง มีแหล่งที่มาจากวิดีโอเท่านั้น">▣ ข่าวและสาระ</option><option value="สารคดีจริงจัง ถ่ายทอดอารมณ์">✦ สารคดี</option></select></div>
+<div class="field"><label>เสียงพากย์ภาษาไทย</label><div class="segment-control" id="voices"><button type="button" class="choice" data-val="male">♂ เสียงผู้ชาย</button><button type="button" class="choice selected" data-val="female">♀ เสียงผู้หญิง</button></div></div></div>
+<div class="field"><label for="subtitleFont">รูปแบบฟอนต์ซับไทย</label><select id="subtitleFont"><option value="bold" selected>Noto Sans Thai Bold — ขาวเหลือง สองบรรทัด</option></select></div>
+<div class="toggle-area"><label class="toggle-item"><input id="captions" type="checkbox" checked><span class="switch"></span><span><b>ใส่ซับไตเติล</b><small>ประโยคสั้น อ่านง่ายบนวิดีโอ</small></span></label><label class="toggle-item"><input id="keepSound" type="checkbox" checked><span class="switch"></span><span><b>เสียงต้นฉบับเบา ๆ</b><small>ผสมเสียงวิดีโอต้นฉบับใต้เสียงพากย์</small></span></label></div>
+<div class="api-wrap"><div class="api-head"><label for="apiKey">Gemini API Key</label><a href="https://aistudio.google.com/apikey" rel="noopener" target="_blank">วิธีรับ Key ↗</a></div><div class="input-icon key-wrap"><span>⚿</span><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="วาง Gemini API Key ของคุณ"><button type="button" id="showKey" aria-label="แสดงหรือซ่อน API Key">◉</button></div><p class="hint">คีย์ที่ใช้สร้างงานจะส่งผ่าน HTTPS ไปยัง Gemini เท่านั้น ไม่เก็บ API Key ดิบไว้ในฐานข้อมูลของเว็บ</p>
+<details class="vault-panel" id="vaultPanel"><summary>🔐 บันทึก / เปลี่ยน / ลบ Gemini API Key บนอุปกรณ์นี้</summary>
+<p class="hint">บันทึกคีย์แบบเข้ารหัสใน Chrome เครื่องนี้เท่านั้น ตั้งรหัสผ่านสำหรับปลดล็อกคลังคีย์ (อย่างน้อย 8 ตัวอักษร) และปลดล็อกอีกครั้งเมื่อเปิดเว็บใหม่</p>
+<div class="vault-fields"><label for="vaultPassphrase">รหัสผ่านคลังคีย์ (ไม่ใช่ Gemini API Key)</label><input id="vaultPassphrase" type="password" autocomplete="off" minlength="8" placeholder="ตั้งรหัสผ่านเพื่อป้องกันคีย์ที่บันทึก">
+<label for="vaultLabel">ตั้งชื่อคีย์ที่ต้องการบันทึก</label><input id="vaultLabel" placeholder="ตัวอย่าง: Gemini สำหรับตัดต่อคลิป" maxlength="60">
+<label for="savedKeySelect">คีย์ที่บันทึกไว้</label><select id="savedKeySelect"><option value="">ยังไม่ได้ปลดล็อก</option></select></div>
+<div class="vault-actions"><button type="button" id="unlockVault">ปลดล็อก</button><button type="button" id="saveVaultKey">บันทึกคีย์ปัจจุบัน</button><button type="button" id="useVaultKey">ใช้คีย์ที่เลือก</button><button type="button" id="deleteVaultKey">ลบคีย์ที่เลือก</button><button type="button" id="lockVault">ล็อก</button><button type="button" id="wipeVault" class="danger-outline">ลบคีย์ทั้งหมด</button></div>
+<p id="vaultStatus" class="vault-status" aria-live="polite">ยังไม่ปลดล็อกคลังคีย์</p></details></div>
+<label class="rights"><input id="rights" type="checkbox"><span>ฉันมีสิทธิ์ใช้วิดีโอนี้ และยอมรับการส่งไฟล์ไปยัง Gemini เพื่อประมวลผล</span></label>
+<button type="submit" class="start-btn" id="submitBtn"><span>✦</span><span>เริ่มสร้างคลิปด้วย AI</span><span class="arrow">→</span></button>
+<div class="form-message" id="formError" role="alert" hidden></div>
+</form></section>
+<aside class="side"><section class="panel preview-panel"><div class="panel-title mini"><div class="title-marker green">02</div><div><h2>สตูดิโอผลงาน</h2><p>ตัวอย่างคลิปและสถานะการทำงาน</p></div></div>
+<div id="emptyState" class="empty-preview"><div class="preview-outline"><div class="playicon">▶</div><div class="live-badge"><i></i> PREVIEW</div></div><h3>ผลงานของคุณจะอยู่ที่นี่</h3><p>ตั้งค่าและเริ่มสร้างคลิป<br>ระบบจะแสดงผลเมื่อสร้างเสร็จ</p></div>
+<div id="progressBox" class="progress-block hidden"><div class="pulse-icon">✧</div><h3 id="progressStep">กำลังเตรียมงาน</h3><p>หลังอัปโหลดครบแล้วสลับแอปหรือดับจอได้ในขณะที่เซิร์ฟเวอร์ยังทำงาน • หาก Render ฟรีรีสตาร์ต งานจะหยุดและต้องอัปโหลดใหม่</p><div class="progress-track"><div id="progressBar"></div></div><div id="progressPercent">0%</div><button id="resumeV11" type="button" class="download-btn hidden" style="margin-top:20px">↻ ทำงานต่อจากจุดที่สำเร็จแล้ว</button></div>
+<div id="resultBox" class="result-block hidden"><video id="resultVideo" controls playsinline preload="metadata"></video><div class="result-info"><span class="complete-label">✓ สร้างเสร็จแล้ว</span><h3 id="resultTitle"></h3><p id="resultSummary"></p><small id="durationInfo"></small><p id="sourceModeNote" class="source-mode-note"></p></div><a id="downloadVideo" class="download-btn" download>↓ ดาวน์โหลด MP4</a><div class="file-links"><a id="downloadScript" download>บทพากย์ .txt</a><a id="downloadSubs" download>ซับไตเติล .srt</a><a id="downloadCover" download>ภาพปก .jpg</a></div><details><summary>อ่านบทพากย์ที่สร้างขึ้น</summary><div id="resultScript" class="script-content"></div></details></div>
+</section>
+<section class="panel steps-panel"><h3>✦ วิธีการทำงาน</h3><div class="step"><div>01</div><p><b>เพิ่มวิดีโอ</b><small>อัปโหลด MP4 / MOV / WEBM / MKV</small></p></div><div class="step"><div>02</div><p><b>Gemini วิเคราะห์คลิป</b><small>ตรวจฉากและจับคู่ภาพกับบทพากย์</small></p></div><div class="step"><div>03</div><p><b>สร้างเสียงและตัดต่อ</b><small>พากย์ไทย ใส่ซับ และเรนเดอร์ FFmpeg</small></p></div><div class="step"><div>04</div><p><b>ดาวน์โหลด MP4</b><small>พร้อมบทพากย์ ภาพปก และไฟล์ซับ</small></p></div></section>
+<section class="sidenote"><span>ⓘ</span><div><b>เกี่ยวกับการใช้งาน</b><p>ความยาวจริงอาจต่างจากที่เลือกเล็กน้อยตามเสียงพากย์ ซับไตเติลจับเวลาระดับประโยค หลังอัปโหลดเสร็จ สามารถสลับแอปหรือปิดหน้าจอได้ แต่แพ็กเกจ Render ฟรีอาจพักหรือรีสตาร์ตเซิร์ฟเวอร์และทำให้งานกับไฟล์ชั่วคราวสูญหาย</p></div></section>
+</aside></div>
+<footer>© 2026 AI Clip Studio <span>Built with Gemini & FFmpeg · Made for creators</span></footer>
+</main>
+<script src="/static/app.js?v=13" defer></script>
+</body></html>
