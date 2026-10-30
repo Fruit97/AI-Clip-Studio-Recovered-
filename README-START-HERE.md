@@ -1,11 +1,13 @@
-# AI Clip Studio: GitHub migration-ready source
+# AI Clip Studio V14 — Universal Visual Matching
 
-Upload the `ai-clip-studio/` folder and root `.dockerignore` to a *new* GitHub repository under your connected GitHub account. This ZIP is a source backup, **not** the live deployed website.
+Source folder: `ai-clip-studio/`.
 
-Existing Render service Docker setup should remain:
-- Docker runtime
-- Dockerfile path: `ai-clip-studio/Dockerfile`
-- Docker context: `.`
-- Branch: `main` (or whichever branch exists in the new repository)
+This is an **offline-tested source bundle**, NOT a deployed version. Existing Render site still runs V13.
 
-Read `ai-clip-studio/README-RESTORE-TH.md` for tests and limitations. No API keys are included.
+Key difference: every narration beat must be matched to observed uploaded video footage using an AI-provided visual evidence and confidence score, for any topic or action. No hardcoded sea/animal keyword list.
+
+Gemini scores are self-reported; accuracy cannot be guaranteed without running real Gemini and inspecting generated videos. The V12 related-shot reuse and approximate text-based narration timing limitations still remain.
+
+Dockerfile path: `ai-clip-studio/Dockerfile`; context `.`.
+
+Tests: cd ai-clip-studio && python -m pytest -q test_v14_semantic.py test_v11.py test_v12.py test_v13_safety.py

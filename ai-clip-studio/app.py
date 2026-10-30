@@ -851,3 +851,7 @@ from v12 import install as install_v12
 install_v12(globals())
 from v13_safety import install as install_v13_safety
 install_v13_safety(globals())
+
+# V14: per-sentence visual evidence for any narration subject, not keyword templates.
+from v14_semantic import install as install_v14
+install_v14(globals())
