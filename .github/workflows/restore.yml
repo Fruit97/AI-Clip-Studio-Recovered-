@@ -1,0 +1,73 @@
+name: Restore AI Clip Studio
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore project files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import stat
+
+          root = Path.cwd().resolve()
+          source = root / "AI-Clip-Studio-Recovered-V13-GitHub-Ready.zip"
+
+          if not source.is_file():
+              raise SystemExit("Source ZIP not found")
+
+          with ZipFile(source) as archive:
+              names = set(archive.namelist())
+              required = {
+                  "ai-clip-studio/Dockerfile",
+                  "ai-clip-studio/app.py",
+                  "ai-clip-studio/site/index.html"
+              }
+
+              if not required.issubset(names):
+                  raise SystemExit("Missing project files")
+
+              for item in archive.infolist():
+                  target = (root / item.filename).resolve()
+
+                  if not target.is_relative_to(root):
+                      raise SystemExit("Unsafe ZIP path")
+
+                  if stat.S_IFMT(item.external_attr >> 16) == stat.S_IFLNK:
+                      raise SystemExit("Symlink not allowed")
+
+                  if item.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                  else:
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      target.write_bytes(archive.read(item))
+
+          print("Project restored successfully")
+          PY
+
+      - name: Save restored source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .dockerignore README-START-HERE.md ai-clip-studio
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Restore AI Clip Studio V13 source"
+            git push origin HEAD:main
+          fi
+          
