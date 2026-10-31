@@ -863,3 +863,7 @@ install_v15(globals())
 # V17: prevent oversized voice requests before paid TTS.
 from v17_quality import install as install_v17
 install_v17(globals())
+
+# V18: adjust saved short narration without another Gemini request.
+from v18_voice import install as install_v18
+install_v18(globals())

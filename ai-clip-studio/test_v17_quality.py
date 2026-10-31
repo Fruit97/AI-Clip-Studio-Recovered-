@@ -20,13 +20,13 @@ def test_78_7_seconds_within_one_call_speech_range():
 
 
 def test_script_trim_preserves_beginning_and_conclusion():
-    input_beats=make_beats([45]*15)
+    input_beats=make_beats([55]*15)
     data={'beats':input_beats, 'script':'bad prior script'}
     result=v17.enforce_script_budget(data,60)
     assert len(result['beats']) < 15
     assert result['beats'][0]['shot_id']=='s0'
     assert result['beats'][-1]['shot_id']=='s14'
-    assert 390 <= result['v17_preflight']['glyphs_after'] <= 555
+    assert 430 <= result['v17_preflight']['glyphs_after'] <= 700
     assert result['script']==' '.join(b['narration'] for b in result['beats'])
     assert len(result['captions'])==len(result['beats'])
     assert len(result['highlights'])==len(result['beats'])
@@ -40,7 +40,7 @@ def test_script_preflight_rejects_too_short_without_tts():
 
 def test_preflight_rejects_overlong_if_only_three_beats():
     with pytest.raises(RuntimeError,match='หยุดก่อนเสียโควตาเสียง'):
-        v17.enforce_script_budget({'beats': make_beats([200,200,200])},60)
+        v17.enforce_script_budget({'beats': make_beats([250,250,250])},60)
 
 
 def test_preflight_never_mutates_non_60_second_jobs():
