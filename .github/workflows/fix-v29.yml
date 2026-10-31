@@ -1,0 +1,119 @@
+name: AI Clip Studio V29 - Fix Visual Match Priority and Evidence Audit
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v29.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-install-v29:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+      - name: Install guarded V29 fixes without API calls
+        shell: bash
+        run: |
+          python - <<'PY_V29_INSTALL'
+          import ast,base64,zlib,json,pathlib
+          chunks=[
+              'eNrNWVuPI8UV/iuV4aHbqN0zNsMyY+QoCwxoE9hd7W5IpLFVqnGXPcV0V3eqqj1jRiMBQVp4J3eEAgjxgJDCJlE8/8bKL8k51dUX32Z3BQ+Zkey+nDp',
+              '1rt85p3y5I6Q2LI7ptHsYZrOdHtkZ2P83mYjbozjVPCLvdg+Jo+OKjFNFzCkn/IKNDLw7IJlKo3xkRCqJUZyHBYeBFEmWKkOYNgM5VmlCMmZOY3FC3I',
+              'v7cDuQA6nS1PTxxveYgE1F1tYmj0TqtQYyY6MzNuHu/a5Jsl2QNWOzOGUREjCtOTBDJqHQNBLKbwXEu6/S9zgICPfwlaoZEZokQmshJx7uOpARHxNtl',
+              'BgZqngWsxH3FY+ZEVMepHEUSH7e6g0kgb+sj/x3y9fFQ9PPQsVZRA2/MD6XozQC5n0vN+P2AYqGRGJMTDhKc2l84Nn6Wb/jWOKfYkJz8gBeioQfKZUq',
+              'f+z9WvKLDGQGy1+WG14RZkieTRSLOMlSIc2rRPFxjtqQXGo2BodEwhD/srnbFUmYGZ1y3SrFycJzJQwvRDZhqbdTN+i0gg16DOQL5E2htCF2MQFKMuV',
+              'Ko8cTps4gKtjYwGcGtkaNJjlTkSanbArSooOicCBXTO1NO/tU84SB8iOIPS8oJPSmLBZRqCFC/DM+68csOYkY4T2fH3eGRKYGgpHkwDNo8+O9Yav1jC',
+              'tXVznFHkEsp0pMhGQxOOScvMUTIQXhUxGBLTgZMUlOgAY0RvUNh9sZYSRKz1EnzhLUexyLyalBhuYUfIXO0IQBz5kW+tg74cxozwph1Q/JQ8kyfQrav',
+              'Hb05r0HR6CYSkD+95lNJJ1ikiG7vd27EMRsIlMNhsIolnyKFpeEKSPGmIXpuEhJjCCwuowwUUEAHo83Gb57QGGniUy4NE3Lu7x8T6dyUKVvglm6PYGf',
+              'abG7G6XZ7CZWreeQFT8wgUuzQe6y84CgRXVAolxZO0L+1tlm1Kx5axOQm1xJ9N9UpLmmT+H2Y3YvY4xWgdW3BgkjzjO8QBatn1bc5zVo+Te2yY7yQaQ',
+              'B+uJyzKp6l9ZzrVvTveJik3BVRpZlTclewCrTI2w0QsU40fmJhXYRxzkstbpirkVkKnQOWVxu38ibMuyW1C+DzxU3qFSkrocHGLf1nT+J0xMWa7+BN/',
+              '9vgsGLAUIGFOwe7KWw8hEWY42atRH7rNUhfAQ4xMysZIh4LMfSoR0g1RIdUhBXjAWPAKhjXpT4m0Q7XBLtsGmzDaH4RjqC0jEWMa8RvPtK8V5CAJCts',
+              'Xoz2RbJkcEGKQzXhk47L1EsombW2GawQ2mhLaUrieO1wnePHjy8c+9ua7DzPOQBWSbaJOgS8w0Sa6jBuwLal4vw1CRxZRXsxf77wVfk9Tt3j965/ejO',
+              '6+TojTuP7j24c/vtBs3hVhqbi9jeSZZwrFTbBLQ2cobbbmrX54xSCSXT6L7vWrldZN96eucEfWOYMaW5X7IIMFZwdd+yKMh825kVPBu9TbVmA3fUEes',
+              'P6mj7RoxT33uxKXa9O1LeJG0tFTjKUrewb1XQpPnW3q4bKlvoqAcdW52NJxzE4QDtGbQI7uGrVTLa/KwqhqNdahVQoZ2A7Gz1RN3UW1zAXgXbeMX1ac',
+              'UZtk1zBTuMwRwIUAgNQAmt9bTRHhVAIWSWmxCD5d3OvlvYrgGirE7xzO2lgP0aCmkoU5yYFPsYIUFw0H0gT9I05gzbH2VCRFdPF11Nu6gk0IBCcQDxb',
+              'Y+LfJeN0U5yY62YWiSG6QD0gK4fmKLPQKSCD1Ds7f627I5D8loK0cDAtGNxAe+gvwNbebXPFKrrxhqXm1DmMD3aDmfbpe3bqF1tjjZI0C4N2C7t3baW',
+              'bHf3urfanb32S53GSOL29KUuYxFmCKnDCYd4oiAXvXP34aPbb7999EYVrXVzUNxLaDlXSIcg8COV85rg9v371Clj37rrmgBM7Q1DjRYNMbxszFCdZ4U',
+              'JKWpKy5q/zHt1KYRxVfypVZ6W4RUtLf5FvdoqvMsygRMfAN44LaGhMNM49df1J5eeG028XqlRsNxFWSAsQpPCKNPIGoxLWIbSbFpTyA0hrAHDMdJOYo',
+              '5q0KUYrPS8gROg09gZw5yiVWEAo7kcQe8+4REs3AtfOdi0EEeTJE9omhtIQshz4BShzLf2NpHLlAJmKUYndqihIwismzQE+iKfwdeAaEXNmbkFVwXQ3',
+              'Iz7NdrcG8NMJLk9PlB8AlqiV/Sr5H2uUhhizHmqzuDN73JgCG2rSc84tEuAzWBhRRIYodjqWYKdLsobPdPVtZllvL7LZihknVKuxu/TwuuaFgBcR+T5',
+              'KZf0BECAAgiAsWQOksezOtarSHM7NIdX7IHgvnhvY6h/fOkJcKOn9/Y6UCohD5TxenuBxyU8vnUV1O+79ftb7n2nezV03EZc8nKQvegVqy4CL+J6pER',
+              'm8b/nLeYfL+Z/Wcw/XMz/uZh/s5j/sJg/Xsy/Wsz/Y59/v5j/eTH/12L+18X8iX3+0eL6U/v8y8X8Gpdc/95Sflc+f4wFnk0gVo4de294VchkQbOUSY',
+              'so0ACB3MmG9559ANf4BSpV6QCc/m4l+GKLxOuCfodkKNMTS/xNJd+6xIvrDxbzzxbzf9uF31r6H1BwJzeO4KXYWMlBYslU0aV7PXwSeCOWNW7XE6TIk',
+              'qKbp656gInsle+8HR6+3ArqJ+Df8ODlVmk9AML+pWeDsYo+zAGhMO9tXhZvR1A4RAT4WcLScRVNyHTYlM6zcYI09sJJ0grqu67XWl5RHEj0jvHbB8d8',
+              'joGApvzCRsRnz+Cbvy3mXy/m/3B2v35sXfWhffghbP4Tc57/0dJ/ZmP2iVcZFJCwD/YKl2fhYhTudAPn8BdZ724qedVa2jPD4wuwKdYwiNyhPdi8wJY',
+              'QOFYHNsN+f8XuSxywTgOTZkDQIvqH5Od9AiC+mW1rFZtgWqhnQnrGeabr+CjaPlofOFHb5kCg+kkqz/gsw40Dk2TUtp8rULU0WSJWwQhpCaadTt8CZ/',
+              'hOGuUxfwTXeC7XadbZYis5oZsM3DjpaBxqnld6IhA2ksyzHv0acen6E5e18z9hyuLt5/bzSQkMTyzlH+wnZPMnNrYKAPgWveEc50C2RMwtx6pN6Kk2r',
+              'ADyqwIpFtcf23j71F58iTQo7xclpjy219+jUE78Ukwk+8aJv6ZiaU0wbB2l1Fqov27dmpaZNKFY8UrUQucG0Nn27EjSGHaQKIzyJNM+vN54hmuZdl/Z',
+              '5O9qmG7QhfSX915zxA8hkGJ+F/oBneEACn2Zkwgg9D3rAgxi8EmaIaZcejAPTcwpFLS9q6tK+f2NsVaX0dpM+2HCzrCzSpOsguwXmZronlc89FwpqqM',
+              '/1NyAPRIfuoIwsVvowMZyAB+tZ6WvbRHA9TMva6oB++27haMYcILczrJGemBOUQrNGJ4A4Altq2fPaW2vvMXireXl2BjjmqDIdtf4OjuNoY3s4Ycbj0',
+              'tU2C2c1AqTM/sbSenqg7AcOC5t390Dcf1W4P3m3oNfQR10q0s3NsrXtgK1pTItd0SbG5gqM7+3+XZtM7Co81X2rhQPV1Qg/zeWt8v1Yr3SmhW9SnjY3',
+              'VLul/uXHyvn0hIHbo9XWhvQ5aqsbucCBtOinQ0trGm/iWtFn9H3Orsd0iibH9k9Pl4aDzegjwXyp7Wqw2C/0w1fdv7XBswV9S3g4C9w2l8NsF08+moX',
+              'Vi/G3BCpveaJTwlLy+W44H3sYW4IFntDV0YoGoFCsvH6ABlKS7/ztNWRgGoqR6ZaVY54a4tXo6T8malZy473hoS8QOzophJNyhpMUjz/hb0DMuOmPCP',
+              'R5QHsWqW3gxOOQrT47YxCHtHijGhtyth8BGtr+KFTIMu2gMaNgBLUIG7LSs8v4UP2xrJ0jNR9BwrwcVUixmHYOKJYMuPaqUJow0mjA+1hYttbXoAn/c',
+              '9yvnDDoptOFtaEWz0TgYn26n8CD66Z',
+          ]
+          payload=json.loads(zlib.decompress(base64.b64decode(''.join(chunks))))
+          assert set(payload)=={'install_v29.py','v29_verified_selection.py','test_v29_verified_selection.py'}
+          folder=pathlib.Path('/tmp/v29payload');folder.mkdir(parents=True,exist_ok=True)
+          for name,contents in payload.items():
+              ast.parse(contents,filename=name)
+              (folder/name).write_text(contents,encoding='utf-8')
+          exec(compile(payload['install_v29.py'],'install_v29.py','exec'),{'__name__':'__main__'})
+          PY_V29_INSTALL
+      - name: Check source syntax and no-short-clips contract
+        run: |
+          python -m compileall -q ai-clip-studio
+          node --check ai-clip-studio/site/app.js
+          python - <<'PY_V29_CHECK'
+          from pathlib import Path
+          root=Path('ai-clip-studio')
+          a=(root/'v14_semantic.py').read_text()
+          d=(root/'v28_alignment.py').read_text()
+          app=(root/'app.py').read_text()
+          html=(root/'site/index.html').read_text()
+          assert a.count('valid.sort(key=lambda e:(e[1] in used,-e[0]))')==1
+          assert a.count('valid.sort(key=lambda e:(e[1] not in used,-e[0]))')==0
+          assert 'original_evidence = copy.deepcopy(raw)' in d
+          assert 'coverage_report(original_evidence, shots)' in d
+          assert app.count('install_v29(globals())')==1
+          assert 'V29 • CINEMATIC EDITORIAL' in html
+          assert all(f'data-val="{x}"' in html for x in (60,90,120))
+          assert not any(f'data-val="{x}"' in html for x in (15,30))
+          print('Strict source guards, non-repeat preferences, full evidence snapshot and 60s minimum checked')
+          PY_V29_CHECK
+      - name: All regression tests (no Gemini API key)
+        working-directory: ai-clip-studio
+        run: |
+          python -m pytest -q test_v29_verified_selection.py test_v28_alignment.py test_v27_replan.py test_v26_multishot.py test_v25_adaptive.py test_v24_minute_knowledge.py test_v23_retry.py test_v22_scene.py test_v13_safety.py
+          python - <<'PY_V29_APP'
+          import app
+          assert app.APP_VERSION.startswith('v29-'),app.APP_VERSION
+          assert app.app.state.v29_fresh_supported_shot_first
+          assert app.app.state.v29_raw_evidence_audit_preserved
+          assert app.app.state.v24_min_duration_seconds==60
+          assert any(getattr(x,'path',None)=='/api/v29/info' for x in app.app.routes)
+          print('V29 app import and guards succeeded')
+          PY_V29_APP
+      - name: Commit only after tests pass
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/v14_semantic.py ai-clip-studio/v28_alignment.py ai-clip-studio/v29_verified_selection.py ai-clip-studio/test_v29_verified_selection.py ai-clip-studio/test_v13_safety.py ai-clip-studio/site/index.html
+          if git diff --cached --quiet; then echo 'V29 already installed'; exit 0; fi
+          git commit -m 'V29 prefer unused grounded shots and preserve raw Gemini evidence for accurate diagnostics'
+          git push origin HEAD:main
