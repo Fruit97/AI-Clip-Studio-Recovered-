@@ -1,0 +1,159 @@
+name: AI Clip Studio V28 - Knowledge Evidence Alignment and Diagnostics
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v28.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-install-v28:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout latest V27 project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Use Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg, Thai fonts and test packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Stage visual truth alignment and diagnostic without Gemini calls
+        shell: bash
+        run: |
+          python - <<'PY_V28_INSTALL'
+          import json,base64,zlib,pathlib,ast
+          chunks=[
+              'eNrVO2tv3MiRf6XP+4HkLkVpZh1ZHmeC09naQFlbMmzZh0ASCA7ZM9M2h2T4kD2rCNg8AG/u033YxWFzwOGyQWDgggVu93I4+d8M8kuuqrqbbHIo2d4',
+              'AB5yTtYfN7uqq6npX8/zG2XDHD2IxSxY8Kb1seWPEbpzQ/54Od0aszKtyPq1ixqMqDEqRJkHMzkRRwT9BEs7TvIB/I/gvTZYL8RmPWJie8TyYcRaJYJ',
+              'akRSnCwjtJTpKjuSjYIo2qGN6lvGBJWrJpMMkFQOYa6iIowzm8THOY9CKZ5UHEWTnnIgfIyVREPAk5K8I05wj20yR9EfMItuMvszhICEfYJliyCWcij',
+              'quizAF8xCZLFrCcx/wsSErcTUwAkaKaPONheQcgCuCAmIrwJAnjQCwKBqjHMSz5RSVygJVEPOPwF6ye5WmVRCKZeYzt5TlyAbZPC86C2SznM6SHn0lc',
+              'AZzmCCAy5zlQEyQsTeIl0sWmIi+QDwLIYAVAx0XIMHkOyTRPF8z3p1VZ5dz3mVhkaV4Cx4F9ktqTRI09K9KkfgBGztXqDH7GYqKXPqQ3J8nTvUeP9w8',
+              'P2JhZIAYbZZqJcEOSxqMNeR4bmowNOOYN40g3hlvD7Y3B1sbHA+skuXt48Mn+vb2Du3sAbcu7tYPwTwDOtJYHP+e4uw1nFC8LUbismKdl4YxOEgZ/JL',
+              'l3YfOSpITHG3IBcEXjcIeJkoVEuXkcwEjYQkyX8LqQIutp7iFoMSVRgxNPihKklhs4RCIsNQr4R78BMs4v5HCcps+rDAdAlOzCm/HStkRkOc6IFWwKg',
+              'loANpIa3MvYR29AOoJraKKCmwcv/CLkCcfN9L4Suhy2HNSC41M5vZ4q0ThGcKdOs38DrqFG/rkGJ4MahKFIhTdrMAwAck3EizAXGUqg5cBhlrkCedx6',
+              'derBG5HZjqKag7EhzRuDsJf2IshsmOB2GOCfDW76cNKRiECXfOKtZIdE0XvOl4XtOI7iTZUpUZFQu8P+hAcl8m5LvihBdeLuIHISh5ARbWxooj4NQ1j',
+              'WBQtnrgsV/gHjVYqk4s2oicRHYzZo3oRVnqOZaRGjUdTKgGjSfhJHqa6+Mp8aWed4tHPawWQdaw2yH/N+7Im/ghgO4qgh1OLkMstynPZ02JX3ztdPEm',
+              'tYqGWmvb7Mlz2okSsAsNM4DcoOYHoHuGx1UeEvQ56VzD5aZpwMuMueBnElf787A4CVyANpj7T2oEI2g0pt24NaCd5nI1yKNt0TxVQkogRFROqIZZIHP',
+              '2aGGa5Hf8IGpDc8sfEAHJi28877Kkn0giiyAX+nJfvqZQdYV+naot2a4VUZqretAGmtzYIE1VIbvqniHTJTrzT2xKmS88cw69TQrzVxCVw2qSUF7BSI',
+              'f16CEXWbIfAoMNAs04LSSIfLDKH5lC97RWadm8Cv9ukF0ly2BydycAKnFnT5imzxggydnm0jKY7JMK9A56pGFjyfkTE0eRinLpsLYiMuaNsxtQI3j1P',
+              '247EaON4YnB4Puhak9Q52WQQv7dYYbmQyMS54LwhNzrHETTO+4MC/CA+WghG7qBb2ZCMgKugMgQYJAI5uoBblHAKkhJ1bhttIqzzU3mNEKiAlxXHb2F',
+              'jppOD5GcisVFdferAJj9QyOby2LAnynGIwKesw2TDq3ck06L8Q5dyn+Mavzd6oqzTdpZGAmCsJy3pJ1CKqXr2GYDM/A1EXhKriLu4qf3UXlXOIredpj',
+              'MQ3FmWNdjAmMMF60I7VMgixxUIAZ5ZG3NaJ2GS8JmRGgdapKgKMCXKI/sSCWxdN+MhRvXzczJZ7uBTpwO9A5OODNOHtCPIgZTL4gDgny8WZTC0insL+',
+              'ID8L2tJluw/3GcYQLhlKkhP25NF9iqQqkAWQr6KAqLUVSM7SFJVK4mGEBr2Hil7HiDY667qS08w2hN+Yf91BNmsXxQzW2VNrd5+tLr9YXX63uvz96vK',
+              '3q8s3qzfw+OfV5Z9o8Fery39eXX6/uvx6dfnv9OPfVm8+p8n/s3rzu9Xlt6vLV6vLr+j316s3AOFL+M3OkQUXm+dE0gXs8a+ryz+uLv9z9ebXq8tvYC',
+              'fw+y05mVrnBhknN66S5JMb7paDAP9p9eYVbf/VOih6C2S8RuQQ3ddEz/cNDTXGl/9CI68IPZj2BwibJbtGM9wGhv5C876nqf/d2cuyiZzvaCMg/g+47',
+              '5vfKAT6t0YwhN5XtPBLQuYLpEWzj47kj7TzK8dy6uykEWiIykhXUK4Ni4nn+hEd7B1GEL6lo3qtafw97o7o/Vmiys4bkIrxVwqq5PymtR4S4Nl1wXTk',
+              'tj62t8nBlQCvEWwC3n9cVtvoA38ai0FhbRzbSZ1bYvSkE4unwx1//+Dx0e79+3v3LNNvS1hqhcyUzwaDzvNNQG4RgJUKWVDgc/v98BZSF0N+j2+Ht+R',
+              'bsIlnIq0KP4NsPMO4HhZ6i+A5VyMnaltEX47YaAdDOCiwUGDiZ+XcBTvSGLt2mtDZ4MrFLZcP6vQfxFA6ONTyL/QjWIvfyVwVYvXutgbfNQYfMXv9tK',
+              '2Tk+ST/YPd+wx4zvbuPbm7e7R/SM/7j5/AP4+e3N8bsV0Ih1+WPIeMCxL5JpObBmHZJ0To37G2s3///pPHR492j/buYW1nmoJJmnEWxjzIEdA8fSGSG',
+              'ZUEtNERZ+BiONjiPrCqEuSC1+IJ8geLM/wlYtHUhsAthPMgEcUCAfN4qhVW1ZO8XtBHc66cEltURanwmVWimLMXc8g4caswgJAmILwLRmWbtCohouXs',
+              'ua5x3emFHqWEQVCA2ypZlRQc8EfuFewFz7HAFC8g1GKfYPIYhHP28ca28jLsaB6IuujUq7MWqmeJxRVIbcqU7dTcBM8JWQwWBNGCs/17BTs8uP9zoAj',
+              '2B4qWbMaTSiQcTqOX4UAp1sKAvxkPibvqDDz2mOp7kltw1g2gn8jyEkNDhlF2CJLIe8HrCl+dEYJRBe5AeELlwIynGbwFnqS0J6hKkrKoymJZjlTy1M',
+              '8TDJNB5yhmBDUBJIIChU0FEqh+HtsnEcLKIYoI0CZKCnKuhZzzKYQfrUphXSL1QKE6a5yu+bpaJTvq+HTv4Ehp4KecZ7r8WlcXMAOHM6aQOyzxVR3id',
+              'XCw4D2WIT32ELDH0KmKS4HM7anRCawQz/M0SeN0BlTFmmeyfGathaKoHXmlFJoURbogKgsCYLcRBQGMC8H+xSgSLcku1vTSOoDV4G4ThFEbDyCWFKfD',
+              'aUfb547ZJssr7XfLzCcYZ8biM06WfuDVz8ppGta+fmWDZ1QlURfEUDpZ0+yup7PqxNe37Ye1ltQ+ktE2JbDor2C4J40F44xkDG95/s8O/4G8qLNWnNA',
+              'TQdQ7oUuNbADH0x6eQooBZzCmgjS462PrHw8ffYpFzU1yPArosfVMtJNyWkxl8/FaebkhvbNAWbwxIdghE6wipcsKo03UcFkA3JDuPMGCOLAAK+zWOv',
+              'W0HrJ4H2wtt/vqR/21qxZeXUpwLy9Og6iw1QZgZiIfWWKDUKfYfxhbVTnd2LEcp59os4Rx+Hit0mXUMpwr0MvAr3SqKFUkkPPnFtYsRBBDFkin4aL5U',
+              'tyqs0u3HyyYf5mca/E00lKZ9MuSTC297sC5ElQZ5CCWBgSRlI30pJALWqcy/JPRkOVubzlXgwPDDhYMc1sIJaspOCbBZcuoohhFJasF/0XVZLdgqDGn',
+              'BJ8NR2hdtGF/AKZRpqIZzzeepROII8ogCsqA+kAj9A/TKo5ZHV67RlJKOapKWL02YLQuQZkufBQWuxFf7OeoBg4dlxRcV55dR0ZIM1vGwKYS7cvQOR4',
+              'Nt7dOwZdY7JeMEhuZTX1Rpz3AJHhtJOlKEuRZOI6MZABWY0LX7CHIUj0iJ6Et6ETqWGc6yitjwu7Dh75qYdFb9buZEGQZtR/QdWKf0+hh+qpcrnuYXd',
+              'jdpXo6so+SKDhnP8iED0dSL5bL/75ZTyK3CdM2AcYm1h903iLzlGlqrycgoFdgBwrsnYw0TT2iatVRoa+iJr/udsq1iFTfQsMr+1Pp2/26oemrdmd0D',
+              'QDFDCov++9ULFIFI78Or3wQlzoW85X7vWbLBZiaRbUwVHx7q29eEEVCnfCM4yKihxdUKutd0bQ0fTBC2IatcqprNZ3cTjdSRUraXKOu33DZjRJ28fva',
+              '6So3LJZNo7YEq9s8ZUtcWz+2YMg80minipIvbIH9tgBrYXCOWoRq8RF4FlOrOBcX2IeRVe6RXkEl7hEuNKpsZ7BhZKMH8UXkys7B2Ls9hPCBF+HY0rr',
+              '/ikpHVFV68yusNaA1kPWO10YF5FsqArzRRZOmyGT1I1tvrDo2I4mB2xQwYQgxMVAmfofUL/bRiPo6HfGJGCmeUV3mqDUtINelOqyjY4mBVWxZbqtvOb',
+              'IaCrHe8yekDan6NdGjacZXWCuD1SDCCLBZZ51e9PsYvefgmj1bO3ypN3+t+f81/fgvXc97RSPfEfOvwuXURKa/wworiBGAWXu2Km8Dtzp9xtGxFB1c5',
+              '7j6NxDm3brlXEH/OwK5ffu29R4gTi/Yqe6sU8C6461dPXCPSX223C1323Hp98DddgdDR4eXKovOj9cqtOBixuxj6pDA26vrvqfj8bAL68r6PUweaJDX',
+              'lXhh3vaa6CviqgSzLx8fY/A7aMTRk9duKkorCFekqsDLWhEgUn5vVbAu3HeRXqstbD9EgODk6+Mc9x0mBvp9x3mz/zjfwt3B0Nu6isE5pwIBOAfI/OR',
+              'pN1eRIISIgJgYewsIPE/Tqcni8fsy+Aconjvwhg3vtlD5ftR+vu1aL02WKr68na8/AlZeL79dtoGbV30Xv1EhcPfYbfFF0rCVwsXaKgOf1rppN93rmm',
+              'bDhlHXNMg+dq9vgg12FEsKkjIjkg3aMmQNN2/Kmqi8zTPYMZ8AHrg0q+76d5jCF1m59HVS6cP/CyoGNfRffSDnFy5e5HibBHfPQZXBfYjs4JnE9EWu7',
+              'ANRaS/SBA4lQ4Fyy0Xm4zUxjQ+E6WOKUrwHdGMP80TbglEdwYYxoMx2s8wIYHFv38es0PdtrI46I/xbxtEK3GOBBZqDYMGLLEC3fIemSCzH5xdtaBhB',
+              '43vXxM2cEAED7GmiNpJQjnHy6Xia3FFRxjTpLZzgWsX9LBsDKbYRnetogvRBllKaqkxPymT1dYK+wXYaeuZvlNOuO0FNU+lzWiLd+yv6/a3mcU+uNNZ',
+              '4NTPq/G8cB4tJFNB1PxfLmiP66b3IQZ1l3QBOh4JMOB+LUkLHi6pFVtgw23HXqgpqk+GtPlmoex1tkfgErOTP0smo/yCBdzrye0bGEGUVzCEl6aNzna',
+              'CPtrcuLurdqfI0VoDrOw6N9HoFL8liQYztyRumhUvC6sJfNTNv9kp009Fp2N6q8mm2fhhAVoCJzjvvb4AGRG6+M+INZ134rZbZWkU3Jc8cb/E8ErlmR',
+              'wLKQ2nnCP5yZSVtpJfUrNzxjO6YHKTyqUxBPJLrwjYF2yWH02QArey/1T/rkVb7vHZgp2jFwDVvta1ql6rNK0oXjsdfgo0v7PZyoFUrfSfRPrXBZHbT',
+              'RgyjtlpWssmi5WH7uqxf6Jyf7pOS+VQVK5UhY3b2Q03onT7NVmIWuBM3HAXvp3q1kvQbWdA+BX500PQB/2aNeOku3c9G1uGj/Z9SY+GnT3Yf3du7x57',
+              'u39s7ZA8fHT54eGT9MG39v9Yu9AD9vLvWebkNZ1k1stWv6WjqOOsqd41+OnUM0ua0DTqzveW+rVXbiVS6/U4VqODdSuOVpQIVc+Xb+m7mmmLYh+1tjS',
+              '3gdkn3An5LSepf4HcXz6YJJeEOZSx1Rau4Ca6GsuKiIxzksfnlAnhywBi7XGUK6T6Ey+FzHm2AmYDBW2x3n92NRcYel2BeUrYIAOQkx0qgx8B7iRgcW',
+              'VrwyGvdwO+9Q6/v4hfUwYfQvxxTL8MKxEYIe2wUtAfSrTMRmIONArLcrtXBBd/KzyKwHAeqA1L2HEJBBXUT5AUtXBYssS+AYLE/l4A80m1gq1t+wkpA',
+              'X1mqtttFHo5ttckmwnGuazLo0wMQQV6AauShix0PXDim1cpVIR0KnBF84PQemNoey46j1E3QLRnFTPiUCkHBtOR1jwL3HNMeGR2DVB0cfTv2eGXXo1z',
+              'YlrAd9ndjNjDLsOvB3dR6LKvxsyrII/2xBrD8nLSX2ecdmBf6OxYHuwNsEgsQbHnbVSNC6Jrc8TTlimYiGdsevTz7gOGtAhIY7HTkAV7dhuAUYr455B',
+              'jYWa2vRMgvJqiBCvpiXrcIYfsIgZnf98gWKNs3ysnKJMgvYib0QQ7EQ7IvXPd1VR36Q+8k6Zxly1qTXJpX9iy8mQC24NHPsWMsIM1BsHU2yOSletwSI',
+              'kjYALZKkw1In+migyKS8Huwt3sgJ6JKlHPsyRvtOiso6O2LeYr9myx9ziV09tfPv8Q+flwhn/H9Jt7LcJlsbcO/JRA0wTjDZXGq7i2isaJLIthDxg4z',
+              'UbNOGnkQ1LyCqXuluElzPwHfuG1Crmp515dUJGLygwtelvQpkkkpXfbonil9IyXgzAH2Isif44XfwhQHfZQGNsHSuGnT8Nbca+16Tf1RlVAXXg4Oj7B',
+              'NXXJAN51O1dHVd2mKuvHOgpwrzizriyuKsc57iJV1iJ9XyRPl9TdlsiQMh8liDlaMPBpd+1jgRXm6bHETO3QkE3jZ5sbfDnCnDbCHCIxhG9ytD9BJjU',
+              'DCuWoB1p9kIXP150nqfpLsgqu7RfVHdYQe40lazeb6JE+UHzOuqCnvpdwoikLjUW/BfOPJnsXpJIjxk5v/N4jCixM0bfQhYxCGmL3XH/wx0bJuqEedv',
+              'o7x/WKDktmZuQ6rnRZWOyb7eiTgXgoBSo4OoWbu2XDbp3s0WHoA8TDYYQrL9dPYut9f31wGCIOP/SKY8nLZUiOzXGAmHZ7qSzqGhrxtrsvaMwzMWgB7',
+              'UCzAS21i2/KlNy8XcU09RnN//fwbdnf/YO8BRIx32d69/SNIR3bvG3N2rpxDjhQjKGQ9fUOH0RmelW19aIZJTcjztiCjiYewh44PmAlkOd5IIFyUqkh',
+              '96Pmqtr6AZQiaFCQ0/3BEMZ3ijYv/BfakuP4=',
+          ]
+          payload=json.loads(zlib.decompress(base64.b64decode(''.join(chunks))))
+          assert set(payload)=={'v28_alignment.py','test_v28_alignment.py','install_v28.py'}
+          dest=pathlib.Path('/tmp/v28payload');dest.mkdir(parents=True,exist_ok=True)
+          for name,content in payload.items():
+              ast.parse(content,filename=name)
+              (dest/name).write_text(content,encoding='utf-8')
+          exec(compile(payload['install_v28.py'],'install_v28.py','exec'),{'__name__':'__main__'})
+          PY_V28_INSTALL
+
+      - name: Check Python, JavaScript and source guarantees
+        run: |
+          python -m compileall -q ai-clip-studio
+          node --check ai-clip-studio/site/app.js
+          python - <<'PY_V28_VERIFY'
+          from pathlib import Path
+          root=Path('ai-clip-studio')
+          app=(root/'app.py').read_text()
+          semantic=(root/'v14_semantic.py').read_text()
+          html=(root/'site/index.html').read_text()
+          assert app.count('install_v28(globals())')==1
+          assert app.index('install_v27(globals())')<app.index('install_v28(globals())')
+          assert 'V28 • CINEMATIC EDITORIAL' in html
+          assert all(f'data-val="{x}"' in html for x in (60,90,120))
+          assert not any(f'data-val="{x}"' in html for x in (15,30))
+          assert 'no more than 8 per beat' in semantic
+          assert 'Only include matches scored at least 0.78' in semantic
+          assert 'Never match merely because one word or ' in semantic
+          assert 'For educational facts explicitly marked as externally verified' in semantic
+          assert 'googleSearch' in (root/'v14_semantic.py').read_text()
+          print('Confirmed source-grounded subject illustrations and >= 60s video restrictions')
+          PY_V28_VERIFY
+
+      - name: Run new unit tests and previous offline regression tests
+        working-directory: ai-clip-studio
+        run: |
+          python -m pytest -q test_v28_alignment.py test_v27_replan.py test_v26_multishot.py test_v25_adaptive.py test_v24_minute_knowledge.py test_v23_retry.py test_v22_scene.py test_v13_safety.py
+          python - <<'PY_V28_APP'
+          import app
+          assert app.APP_VERSION.startswith('v28-'),app.APP_VERSION
+          assert app.app.state.v28_educational_visual_anchors
+          assert app.app.state.v28_visual_audit_without_api_key
+          assert app.app.state.v24_min_duration_seconds==60
+          assert any(getattr(x,'path',None)=='/api/v28/info' for x in app.app.routes)
+          print('Application V28 imported with existing safeguards')
+          PY_V28_APP
+
+      - name: Commit V28 to main only when all tests pass
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/v14_semantic.py ai-clip-studio/v28_alignment.py ai-clip-studio/test_v28_alignment.py ai-clip-studio/test_v13_safety.py ai-clip-studio/site/index.html
+          if git diff --cached --quiet; then
+            echo 'V28 already installed'
+            exit 0
+          fi
+          git commit -m 'V28 align educational visual evidence and report actual source coverage'
+          git push origin HEAD:main
