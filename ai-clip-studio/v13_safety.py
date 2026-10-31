@@ -36,6 +36,6 @@ def install(ns):
     ns['app'].state.retry_read_timeout=False
     @ns['app'].get('/api/recovery/info')
     def info():
-        return {'version':VERSION,'max_retry_503':1,'retry_429':False,
+        return {'version':VERSION,'max_retry_503':ns['app'].state.retry_503_max_attempts,'retry_429':False,
                 'retry_ambiguous_timeout':False,'checkpoints':'local only; lost on free-host restarts',
                 'source':'uploaded files only','output':'720x1280 30fps'}

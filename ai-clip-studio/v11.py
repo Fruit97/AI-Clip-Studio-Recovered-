@@ -473,7 +473,7 @@ def install(ns):
                 raise HTTPException(410,'ไฟล์งานถูกล้างจาก Render แล้ว กรุณาอัปโหลดอีกครั้ง')
             job.update(state='queued',step='กำลังเริ่มต่อจากขั้นตอนที่บันทึกไว้',error=None)
             ns['save_job'](jid)
-            ns['executor'].submit(pipeline,jid,args['source'],'',api_key.strip(),args['opts'])
+            ns['executor'].submit(ns['process'],jid,args['source'],'',api_key.strip(),args['opts'])
         return {'id':jid,'state':'queued','resumed':True}
     @ns['app'].get('/api/v11/info')
     def info():

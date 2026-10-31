@@ -879,3 +879,7 @@ install_v21(globals())
 # V22: preserve continuous camera takes across synthetic partitions
 from v22_scene import install as install_v22
 install_v22(globals())
+
+# V23: bounded retry for explicit HTTP 503 on SCRIPT only
+from v23_retry import install as install_v23
+install_v23(globals())
