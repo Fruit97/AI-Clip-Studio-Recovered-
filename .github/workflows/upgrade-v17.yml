@@ -1,0 +1,105 @@
+name: Upgrade AI Clip Studio V17 Quota Safe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upgrade-v17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Checkout current main branch
+        uses: actions/checkout@v4
+      - name: Validate and extract V17 ZIP
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import stat
+
+          root = Path.cwd().resolve()
+          source = root / 'AIClipStudio_V17_QuotaSafe_Complete.zip'
+          if not source.is_file():
+              raise SystemExit('Please upload AIClipStudio_V17_QuotaSafe_Complete.zip first')
+          with ZipFile(source) as archive:
+              required = {
+                  'ai-clip-studio/Dockerfile',
+                  'ai-clip-studio/app.py',
+                  'ai-clip-studio/v11.py',
+                  'ai-clip-studio/v14_semantic.py',
+                  'ai-clip-studio/v15_60seconds.py',
+                  'ai-clip-studio/v17_quality.py',
+                  'ai-clip-studio/test_v17_end_to_end_mocked.py',
+              }
+              if not required.issubset(set(archive.namelist())):
+                  raise SystemExit('V17 ZIP is incomplete')
+              total_size = 0
+              for item in archive.infolist():
+                  name = item.filename
+                  if not (name.startswith('ai-clip-studio/') or
+                          name in ('.dockerignore', 'README-START-HERE.md')):
+                      raise SystemExit('Unexpected path in ZIP: ' + name)
+                  target = (root / name).resolve()
+                  if not target.is_relative_to(root):
+                      raise SystemExit('Unsafe ZIP path')
+                  if stat.S_IFMT(item.external_attr >> 16) == stat.S_IFLNK:
+                      raise SystemExit('Symlinks not permitted')
+                  total_size += item.file_size
+                  if item.file_size > 2_000_000 or total_size > 8_000_000:
+                      raise SystemExit('Unexpected ZIP file sizes')
+                  if item.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                  else:
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      target.write_bytes(archive.read(item))
+          print('V17 source extracted')
+          PY
+
+      - name: Set up Python 3.11 matching Docker
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install local-only test dependencies
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Validate Python syntax
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          for f in Path('ai-clip-studio').glob('*.py'):
+              ast.parse(f.read_text(encoding='utf8'), filename=str(f))
+          print('All Python files compile')
+          PY
+
+      - name: Run offline unit and regression tests
+        run: cd ai-clip-studio && python -m pytest -q -m 'not slow'
+
+      - name: Verify short-source-shot rendering with actual FFmpeg
+        run: cd ai-clip-studio && python -m pytest -q test_v12.py::test_renders_original_media_with_repetition
+
+      - name: Verify complete 60-second FFmpeg output with mocked Gemini
+        run: cd ai-clip-studio && python -m pytest -q test_v17_end_to_end_mocked.py
+
+      - name: Save V17 source only if all tests passed
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .dockerignore README-START-HERE.md ai-clip-studio
+          if ! git diff --cached --quiet; then
+            git commit -m 'Upgrade AI Clip Studio V17 quota safe verified pipeline'
+            git push origin HEAD:main
+          fi
