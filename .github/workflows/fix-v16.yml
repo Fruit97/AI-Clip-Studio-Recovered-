@@ -1,0 +1,88 @@
+name: Fix AI Clip Studio V16 Render 80 Percent
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v16.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Fix frame-aware segment validation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('ai-clip-studio/v11.py')
+          text = path.read_text(encoding='utf-8')
+          old = "    if not media_ok(dest, .12):raise RuntimeError('ส่วนวิดีโอที่ตัดต่อไม่สมบูรณ์')"
+          new = '''    # A valid 0.09-0.11s cut has 3 frames at 30fps.
+              # Do not reject it merely because it is shorter than 0.12s.
+              expected_min = min(.12, max(.067, float(duration) * .70))
+              if not media_ok(dest, expected_min):
+                  raise RuntimeError(
+                      f'ส่วนวิดีโอที่ตัดต่อไม่สมบูรณ์: ช็อตที่ {float(start):.3f} วินาที '
+                      f'ความยาว {float(duration):.3f} วินาที')'''
+          old_cache = '        if not media_ok(output,.12):'
+          new_cache = "        if not media_ok(output, min(.12, max(.067, float(s['duration']) * .70))):"
+          old_version = 'VERSION = "v11-grounded-editorial-2026-10-30"'
+          new_version = 'VERSION = "v16-frame-aware-render-validation-2026-10-31"'
+
+          for old_value, new_value in ((old, new), (old_cache, new_cache),
+                                       (old_version, new_version)):
+              if old_value not in text and new_value not in text:
+                  raise SystemExit('Source differs from tested V15; refusing unsafe patch')
+              text = text.replace(old_value, new_value, 1)
+          compile(text, str(path), 'exec')
+          path.write_text(text, encoding='utf-8')
+          print('Applied safe V16 render fix')
+          PY
+
+      - name: Test a real 0.1-second MP4 segment
+        shell: bash
+        run: |
+          python - <<'PY'
+          import sys, subprocess, tempfile
+          from pathlib import Path
+
+          sys.path.insert(0, 'ai-clip-studio')
+          import v11
+          with tempfile.TemporaryDirectory() as tmp:
+              root = Path(tmp)
+              video, voice = root/'input.mp4', root/'voice.wav'
+              subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i',
+                  'testsrc2=size=320x180:rate=30:duration=2',
+                  '-f','lavfi','-i','sine=frequency=300:sample_rate=24000:duration=2',
+                  '-c:v','libx264','-preset','ultrafast','-threads','1',
+                  '-pix_fmt','yuv420p','-c:a','aac',str(video)],check=True)
+              subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i',
+                  'sine=frequency=400:sample_rate=24000:duration=2',
+                  '-c:a','pcm_s16le',str(voice)],check=True)
+              ass, output = root/'subtitle.ass', root/'segment.mp4'
+              v11.write_ass('Short clip', .10, ass)
+              v11.render_one(video,voice,output,ass,
+                  {'source_start':.2,'voice_start':.2,'duration':.10},True,True)
+              assert v11.media_ok(output, .07), 'Short MP4 is not valid'
+              print('0.10-second segment rendered and verified')
+          PY
+
+      - name: Commit repair to main
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/v11.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'V16 fix short video segments failing at render 80 percent'
+            git push origin HEAD:main
+          fi
+          
