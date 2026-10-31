@@ -1,0 +1,262 @@
+name: AI Clip Studio V21 Natural Narration and Storyflow
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout production project
+        uses: actions/checkout@v4
+
+      - name: Match production Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg and offline test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Apply verified story, voice, and shotflow patch
+        shell: bash
+        run: |
+          python - <<'PY_PATCH'
+          from pathlib import Path
+          import base64, zlib, json, ast
+          root = Path('ai-clip-studio')
+          assert root.is_dir(), 'Expected production source is missing'
+          chunks=[
+              'eNq9fWuP20aW6F/h9XygZFO0pG53bNkMttdx5nonYxt2x4OFWiAoqdSimyK5JNWPGA1MZgM42TvfbrJzPbPIbhIMghsjwCZ',
+              '3Zrf9b/qn7HlUkVUk+5Ed3OmZRFK969R5n1OVl9cOhgM/L5LseBElh256fG10bZf+93w4GFlhvEiyVVCESdxbhFleWDvLIL',
+              'Sog2PFQbHOggg+s4zaWEE8t2bLLImTKNkLZ1iX9DKRiqCwZusid3fj3Xjb2urnVi4iMaNOmVgFYZxbgXW9CLI9UVx3rYcLq',
+              '1gKKw/jvUhYOzvPoFWeJnEurBD6LpOsEJmzG4ujFL5aYZGXq4lEvFcsYel5IYK5lSxguZkoZksYy8pTIWZLx+I1YckiSYpg',
+              'T1hJthuvgn0sCqxFJsRHorfIgpVwrUeJJY6KLLB+LlZhHFrbTx7CAP+wFgAPWM0qmAsYJrPSYAbdcY8Mw3iRJSvL9xdrWJn',
+              'wfStc0WqDOIY5ce/5bizLZklcwCQHQVaVAeCX5Y8kl+OlUBqFUzXYE71RJsqvh8GBQGg/f/D02cPHjyzPsuGse+VZ9yS8eg',
+              'dJOBO9YX+41Rv0exsDezf2t+/vPHz+APpoy3Lv8/fnQdbBofwAju9A2I41F4tgHRXe+0GUiy50f/rg0XsPnl7SPRPxXGRa9',
+              '0dJjL3xf1BkiXkIaw2DyE9h22nRgR97YRxEjlWEKzFL5iJ35GlDEXYe7cYW/MFpr7PYUu075zW3blgd7oF/9u5u/OC9hzuP',
+              'nz7c/sB6+uEHD5451i+3H723DUV/P7LeJ/wP5yIuwsUxoefjRw+sGfxGtIOKAJENywEyayg6gLJkBANXcxwuA8RWRJtgmqw',
+              'Lx6KSZZCmIs7lr4NQHIqM0Hwdza01wikvgLYcIrDD5TEOAdgBNJC7xvg7MHsRFkAzqzWsNg94oYD2s3ARzqx8PX0BZGcBvS',
+              '5FBnVBbO2JWGRQt3uNUSeICysWh/nuNdf6VVgA3dAY7z98+mwHRkr2RSzZAGxdxDPhWLNIBFl0TPPRFqBXzvsvt0prx4EAK',
+              'WZwRMISBzAAHBOcRhrO7mJlDNgQAVZl0BpIuIAjXEu65Q0sk2S/ueV8vVoF2TFveiqsYW+jnMaxYDjoG0yRk+jrzoGs0wh4',
+              'D86AK0M+ZKUJzGtO8Qz4UqGxuUOAigUYZAE2BYBje4BQ2bpYLtaAnDhvCHwKV2p14gSAE872p0EIh70IpgDpoBBzYErBPmK',
+              'kPk+8Xk3hSJGzrmB1AJkZLG+Vd13r/SQCouWZh73NCuLrFM8MBsTxgsPgmPpJDCQI1yYhKAfWSgS4b1gyrTha57Az19oRUU',
+              'SweIZYDytJ4OCsKAS4AnLvXgOsIRaMx7MCvrl7DafTx9+9FuNC4VAE1gLZzbIwJW7nWj+Hs60QIAMZcIDopskZ5qQiSeG0D',
+              'pcJ8DFg3eZxvJfQslLg7gQPhcBpFiDgcfvE4IEQcDpEo2S+JmHjWg8AG44BRwBJFbYE1v3Hv3zywYOdB8Y0JGVMjMGx1ffe',
+              'XpasU4nbiAwaRBcAfwcPATcEfeZwEFGSrqDrXWOOALjvHMRNsId1cIppsM4FAOrJuqBF5rB86/7/fPr40eMPHv/84X1gTc8',
+              'ef/j0/gNr5+EvHzzb2f7lE5gAGATzhiCeLWvnIYLZ0kKmlYlqH0VCS0b+HMbrZA04kq8XQGAhtAC0ihJEaiYcWJVipciSQL',
+              'QABgmk0TTJ8xDIyjyebTxXxnFsvQoQ3BZsC8aJYWw6M+YNAj9oPcg0kBphBUWF1jlXqGW3okEGg+TAD1P8AjuB3jRXnqwzG',
+              'HmVrJgGoiRJlbR38FBerFepNQ1m+4dBNkeIEKcEyrNyYOq1yZ5kYgE7Hgx6gy3kosiPCbvokAD4KUipIyCJQsACNnrQCGRO',
+              'PAceg/CHTTza3vnwKRwflALsckJ2gCjjF6gl83YkJ9QFTgMS8NhahFGEbDtBKsHSI8AxmG+rr6Zr4Y2kaAFA5mvJvpB8LVa',
+              '1mMAB6gJVKxg3Ry7DWhLCSOpuEmzm4EpHYzgvg9xaoNwi5EdRloVA4lwEGliCXLxkvIircGC5yA5QXM5gabNjc/jH6yJdF+',
+              'UWcSpxBHwImfXfPQONBjAzmud3rTlDKpgD+kswwKmDHFFKmiuH1ZSLNAGWtmTNtwPrAP1DaQ+svP1CiJTRFckc+szVSRO1Q',
+              'RXseXqsdo8qBiABUXMlJ+ZrRGhACVB8pUqIMzBde8RV5eQunEXHpgq7i4AfT7rcOFzQ7qhqVIFH6jjcm4t/BrxNktMsQflB',
+              '6uLzwSZosESuYUwC9xB2QEJCqb5KXkfBschcbY1uDjTY2RfHXhSspvPAmo6sDiiPQdGZ8op5+wBHEJCgyvW7XRByLQ1A1+P',
+              'qrtzWOg7hbAAI4wkXgLSI4WcOnWQTFATEp4ED1rdPiiXsxQMIuECOnQzUt/wGzGHDP4BuHezBSyjPg2q7XXcW5GKRRPOOWo',
+              'yEHmJadWbaOQJsJOWRgUP6u7UUUaraABKT/VQNJ49NrRNFufwKu8G9aptRGwJOLKpSbOQCUndkR22tDDyXlMY57bRCFtBwO',
+              '1zfte5ZQ1oxlhEEu9a7njUc6buWfCYPI+b8YI0lB4LIDcQvCGGiEcYlEPqsjLI2JhSdJUSq2u5ZED9dx0gXD7IsAZ1/+6F1',
+              'dvrd2dtPz05fnZ3+/uz0d2en/+vs7Wdnp//v7PSrs9Mfz04/Pnv7a/z36Z/OTl+fvf3k7PQPFn18Rd2+Ozv9hjr8iENgUyj',
+              '589np1zTil3II+Pn2t9rQn9JYWuO3vzk7hTG/PTv9ArrY54LOANNjU8CThEBMAPAAZoCQ20c9ArQ7sXBA9YvRNiQZ59aPDX',
+              'CWzmI8GkwU4YJ06aGRu7cGUTQi0czah2QvJEiZFwPQAYPm4QLEEaJThaU0qhpRIimvKy4VVQsM2HUBjPypWICUhD5AZSic2',
+              'e6V3FPaubgisOEjuYU0SaLcU/SqUydvbGRgv8kaFA0TOupMQVXUyCHwJBeBqrE51KR715q2VeNwk645Dixk+m4w4rUrgukE',
+              'zlSR/kqAGJwbu4JaIlJSqzvUs2vujTuxwnXP41/j3mAyHkxuuP3+sLaZqoHX0Rr3J84qOOoY3auF4Z8Ae3oku7ctvlT+PTC',
+              'AOtNeoK+fu6ltwnmu1isPPjsbfZcmHsCnhvLXh+6tbkUMtG/aYmVi3FPjjC4m9bPTfyNi/JKo7xui51dE8H8mQgaC/U+kSv',
+              'zygyL1z4lgvyIi/Sdq9q0ic/jyRxywZAVY+KVJ+98jOWOv74kJ/Ei84tfYEQt/pO/f4LyyzauqPVa91qt0PaTlD/b3hmY+x',
+              'VUj1+J+r9UkvK6PdTpSSy4n+Ya2Div9v7Q6gyfdvXwBH9MIsID/rTb3RwIq7/5bAvnnBO/fUGEJewIwtn9Dc51W0IKhkHG+',
+              'kcDGLWjnULLoUxjwP+isXiveyVrIWOovE+BwjFNmLduBVG1btvsC7OwOSeqxJqInXeYsFVupzTEL2JakccZSy5CFIOAvGWx',
+              'iDrYM95YR/CNXPa6g/tJmbjPCEU3+A1oEshq9hljPSdW7Nus5/LCdGfIok5IQwbiJ0dqYCUNXBKMHLHx/FbBn0wfpAERqg/',
+              '41D2dF11AVebPn9JiMbVDARQoETkDQWIIJrNJVTM1e2ugt8cl1A7DQl0YOKFa2nIvxWPptav1V6VVGIG1czH0JRcbAkb6JS',
+              'wYgnR0GYMceiDu/xB81kFSdevqoJ4arUanhyryQvlWffKsd9Nii63EPbBzTymC9HJQo9CgimwjW8zBBNHg+HLgWGSEBmmMg',
+              'xjM7r+zwAuzBxDAqpMIpXbcEyG7TXuBF0IoUq2d38cFgoPRwNls9LHKVzegnC6MTT9a5Zd3zyh7wdXC7T9YLqx7F0g3zBXD',
+              'AQnRko+4lkkNyzEpRvETLU2zt7T8Ss/pMExFSpFh1Xolc7xtiap+SCPiMmP9npJL+gP82p6x4HAFQ7kOzJJcZmBP+YRjPk8',
+              'O8I41EBTcH/fDs2TYO/kPY+VwUbJhnAk70H9ahADMPvu/nViyCDO1jJGVoALyhlyx6lfcGAJa3nT5bluhwUrY+HEr/Mmlda',
+              'dgsfX9DQPleSaQfqfyNFJ9SXupn8h3p2W+UTPs9QfYHkj+srH+sgHgoiNkiq0UN5BY55DvnmnAmL4e/irHSTiWTLMCMjdB2',
+              'BCVIziDnY2+aZmUCnOBAiPFi4KQDP7ouuRVyg1yK7LimxJV0cpup2qwtJyrrXZ9O1Kcan06MZtO0uyPkulbn8TM6CMd6HkR',
+              'rPpTuqD58nivylN4c2FPflbuarVfriM1QOO5Kkw0dCXGEmIjXoBKCAaFgNB6BzqnPpA1zw5M99eWmauYSu67rfW7yQbQYl+',
+              'ysCjAEiN5Y9rStwvkczMtkQRyOogolgh+yjxoJQx+OYInW+CxKcjBi7gcpsJkj1EitYP5inRfo60M3FntiDsNojg5Hcj6R3',
+              'EOyKQdkj11YHMOWUDEeuFsOjtdxN29VJAz70oTAdcvd0FX0hLURPI6UXdcIa4kOgG3BNO+kIDoU9LpIkeXEraKJfGPWu+VR',
+              'o2lg3bDcrVuTqv0UnVJy3XINjqV5atJRc+ouLkgtGG2LssqwbnhoYuzmAga3amipFtFsqLsxuK70VmCfronMqk6B3GS5404',
+              '5fgjKV/UDphpIFS9EqGdBvCc61WF1JxWbztEVCFwPhDIa0yWjJlr1K3Yt9QitAFufx8YfoG+3xFqQuehZhfWgR7m3l6BRTc',
+              'wdB1FeOOlSDaQLHDkDr/xChm6uk9g6BSPM5f5l7B5+viXlv7Tezmf67RZYUxJ8oSSBNLaUJIiSZH+doh6JnD4f2yEa7yMrp',
+              '+OkqAdB/kRxuEJn47N1BuY5FPT6YG9LzUWKYChtl8n1o664sfJlOFaH1HPm4A7KXf7axfV8FKZqKDmyzjxjIebEHMtOQHra',
+              'aKZrkBvfs9y6r6DdnGZv2Zd0Pp8TmH+QikvDYdZyCNjmD3Swpfn9uhTNbHHS4f+Buvw7mYzQ5hNb43MhqYRj07OKJwSKs/S',
+              'rIulTg7xbHWLVWAaFmPygy3jS1fjZbIlAwjmk36XDGDLOw/mEhwul52tWuOiNBGaXd2BZxNVkJfe5UOXXeGQ+kr5qQD/lWz',
+              'I8wtsqAaWKk7ErLgU6Nh1vLHFylGqVnkYRJpn3Um4U2Hs4x5hA6XRSKEgAk4Co+8OQ1YNkaqzXkbRQ83t9JEVD2Z6dYw3+1',
+              'nSXfQRoGyBnFb0t9BYzqo6aEK02ormmrI9gCh2Iyg9eNr4c35tT6Q4lqfFb5E5uOJJAX2V3j9TyXxGGMyuqo7fif7qW+zV9',
+              '+fYC35DGPpHntXlqbDkRTsrK8L9rvb6lAT8meuSFfaY5vz8nWjb1baTosnEJiO9ois+lF6ruXvpnmq7ynZ2zzovdSJ/Qzz8',
+              'R6EwHUrUMBVVs/70JZ9rO21e030+o8Pdt3iPCb8IcwP2cokAVuoz7E50iPwBNDuOJ6H7PZeaYFrcF2rzLUbvrQIBgVsd7oK',
+              'Iu1zHYVAHGv9MoNOIUNAAlcEjCQCHAgiLA6BJjv4Pra+Xlh8swEtUwoLWhQOoPaliOuRmSIm+7fafq0KS/aqwedwMhMRiO1',
+              'BBldS18hExGkuFL09U0siiA2dE2uHkhh7QVcyi74tyX9mKomXMqSF7aWTnwRprA0Jx65ObXbcELB8M0MzmS0cuxSok1krjG',
+              'esfF+xoOfKnS+Yha0HcnW4uT2tGV4EXbCQFmVpc41VqrHXq9ulR1kCkzOpYaImr4aPQCfy/PbKKJkjW7rUzFpwtIihh1mZZ',
+              'YM/I/bjCgT5SjmLnPJ5J3lM5wyRfeaEz5VSOI9wlxlq/QmfOWRwA95rc1pwtupFLlKbHAp4Bl6VzT9PVglUbCR0PXG24CLZ',
+              'oa+7NVEGFiAKWI/Gr7OYnyF8kUzg8UecrCsVbrI4sTXABJ0lwPBBdgfSwMRZ1yRHMSz8XSnYkw6pR2DIpRt49Go7Yq5QrBL',
+              'BhM0nQToFpyhJODDZD0cGp3rSDnjWbaQXGBm4sini2DOAYbrjPottXjfIfhvFh2hq31tGpyBjRXRpZdlMz2MVJp7+72bdjA',
+              'EP65PbgzrLM+3n6N3cWK10EHRzapkYtcCn1wgyw47NC04xFOFtdDeRLQQCBxY0faMJ2pbWuJHnCWfqW9SYcsTAXL4lxSpep',
+              'LS7giEwNtMPy7BgKFybI1uso1pCiyYLbvyKTAVKb1lJ5aUDUxp4oD57FAJDHsvJr7tbE0ACV5qqACcIO+UrX6wfaJYTSi43',
+              'Yl5mHgJ/u8Vwr3tWwSmMOw272KwfivFEn7bdOgaws2sTb2ygzdf0Xc420ZaVI0XqzQDKQ9uQhDH5MfOUWYC6GBu0o3tUA9l',
+              'pROO/q1jqMw3leZIz+zyDDnDGNMBeNoPaABJZqzq5UPBs/+0eMdovRUP1apJSAsF4tVKvb8bB13xnYvtB0kVjqP8hefQiVH',
+              '7N4ijABZAPeQvI5sxx73R8GoPxkP6CNYhUdeGKfA2bzhSJ2HR0n2o3mWpMm68AGz4jykir5zUUjQBuWGCdkL8uN45g1GNJK',
+              'fwvB9J4jQ2yQyjz69vnvn1jiY2PpyV0EKa+yPDkZ9+JQ/qZHdm40O4GOWpMf8K4CPIJjhjyn9GAxv7xujBRmUbt4G7ouNqO',
+              'kQvxW2s7BfNtBw5N5anJjLSQ4WUbAHdqJ9YxHAQXOCEYIajrs7cRA/AUTI4uWhJ1PKJpu3RC6wiyE0y7a9FsIn+XhbhTEMY',
+              'oKB2qnIHf40KrogQPsvklrqAvh8i0Sq5Cxuv1aqtwqa44A81x+Uuf8njfbcTKRRAEyRuYohd6mo4qUUh4yiTlw6PpDh5Kyt',
+              '+c+BYB8+eraz/cEHD96zuyM5SDubK39v+jnoPhh5Q4kHv2v1t/ytvgowUQPpWkyiubwXQOe96WKmiyxRlGsUYmSTzf5iZt4',
+              'DGLVcNShHdxrNu9UCYkxajsKPhMS58rev5eK0VFRrIe4sXYw8yUi/k2CkKRozdpo92b9rBADNVBLr8hGqvamF4vIRjfUtIT',
+              'JUZc2YV7sTtZZEc1G0Ur/FodZy5WlqWYJHePTySgpPhKT98qQRGz3PRXy5c1jOIwPzKApsBUoTfLCSOixxfyLO1xkj0S2Xf',
+              '7CmAsivhmlUVEgEWuSoFnKGIkcbWp2rVErk3Rsf88z4hKuC6oSrMmk7lsrSXOSY3p5j1jjrzA7m//oUvcYwhEgxIB/Pu6NL',
+              'D8PACdUGQyBXwY3mfsqlyqHGtjQU0Pyr1n1hToBh1l28vwYSXbSknwy9CoWMA6sflsp8Z31JsaNbrvrpg/ZUYhKerKrQFOG',
+              'felIU/j/3uM45r8ZC9QU0QHmp6l4eMZPcRD90FhllPmALOJTSCSU1MCKJgjpZow1V2iAQVQFyceC8COeOPG8+bkw0FpnDvK',
+              'TOQJTTgE6+Fp8AUwI6XIVxIj8D0wTjgFIYMzu3nY0+CIX/4Vlb/UsO5C/YwxVJ6Ypb1T3iOKnHFg99N3zzjyPMxMaILt0wk',
+              'co93fLgtMUgykQwP6YbDaDpcVDeKi+NYCS5WAp9SOyLLTEud7e6nlBdfpF0DDioUvsCKD/OQ55xZ+dZMwNcrv0mp0+tZzOR',
+              '56CXZJjQ05p6oKIBKd3vw1twFqZU8fn0ECFf5OgVs+Grn6JP8jqZR1wA9sYU2s1Lq+mS87FRxYIN+agDyXFkLhbZXC2Of4q',
+              '3FmKFK+PNuXtRMu3IBYPmh7XKJFuFOQZRQHv20G2mnaFkzJ4BIC5zQX7ZDVCqSgU0iovWVH3ZBhO4ayFTjEuPWpwQpSdJft',
+              'YDhdqKC8xS8BRTxKsKLyXvGWm2uFOKnJEasuRHI3Ns3YnYTDnhc8B45l+PTP8bhIp/F2M5wxk5c0deR3aUe96z18Wid9vut',
+              'vIn/XoLoR7SYVSHkzoQJNiiQ4fUFJ0KdF4rOy8hDFo/rt2L87Etv9uTiuXLog7BPpv55H1EPHf2xTGBR6cYviHtTZMk0phz',
+              'ZW0AsGyHvMnAppGDnM/FPU8JcMIVTwkA3DFPcwkqmfz+Cvu4FOpyBRLqsr0BN09+q6pqVuKEeEJVvf3kiS8xBOrkt6o6SFN',
+              '74oIRWggXEU3pvHxfrTZWvbHxLgGYQT4nYmi9/qbqRvC/GaThTeh6E6+nKgxlQ3iRtGVXAjcQWc5xDIXoFufJ4vVwH68E++',
+              'U9Xb+6d2uPcBUtNGqrLRZFTtucy/ADjMvr90lc2SO6fN82gopG+6Dq7IFk8NGbbo/sYAaIgHY3ucN6e0GKOilwVjG/q19nb',
+              'JMgdl0vY3Yht2HZ9FyCv0cy0pe38GDOfttQVbTJxnch+F7i3fI5B/nWw82II3+pyFZhwbdgWh54sMGsu+ZcK2A+/6KnLSqT',
+              'Hw0yuvwS41AL0vvI32PhILnV+UhkiRL3eBsm75YOXOmlyNfTEtEvfaIhPcZxy5/GIsnDMRxobyAcsXeeDeDa+wZGtnoV5hp',
+              'hXLctBvuWg70c1y0Dyz+QR+hbzbfLAeo/U5DmY8ol+aP057LbSt7g+hcV1HlNzqtTLkdHYRnLsxszXGUADUeqeJ2d90kz0X',
+              'NIRmMsnTi1eGff0XPqR3dOnAsA9anKgnld5dSgP+0HGaV/+0oLy782F/1HAs7/UZdNOPvme/LFfazus3DLN/Tv/2gF0dWGP',
+              'xcsg1awDJpguWOCZXD7Qrh8p263/E5t42sDLmVCgtz2G5U/8KUZAyzdmhwWeKuStWkEHFllYMtYwWd1BLrqVOcCaNgKoGET',
+              'QIPbJoSG7ygI6XmE5BmqU+JLDCOPFnb+MjyB6eSA4fU7rsN3RTrhjUEXfp7UsxU39CRFYlvsd/QXyQxzSMHK9ysBAkzKV3f',
+              'my0WkHvAMt+HDlM6h6/7I/tvtZw9sZzxxtoA26Gz5ws8n7IJWog3YvwCWZOtPmtCdlJRvqpSSSy803ibgCnO0898NaWttXu',
+              'rXJ7r0mrcazoAmX2fN/fJab3W9g6BJ90dy6WFVEJ0HReC9lPdYRg0uhvhbZ3rlTRa77aaZ0d8UqLa6sjKuMXu8DVgv6jeLW',
+              'loNJ+ouUkCoYXiRcW/meY/xHpOkl0mVYR+U97kmnjdm/kvcBmnHGAAzboPqfpdLWTadbvddb8NoFxh3iMYXX72BSQe1s9Sz',
+              'MJiU/WVwICpdDqgl8/FFBwrJVmRK+/BqYJIREGUWIKDO8QBDjTN8x3Uk7Xcbm1eDVDuuUfnAMZrpqqNSyT1VOw57g4mR/4H',
+              '3fLVqrVKuQbapX1R711OD12tuVBVV4kivSqVVBybzS4pGfgndKCj30xsOuvfcWufxUR2tjvROrUhlHDcfaxQc+3gdwF+IQ1',
+              '89SOLLWL8CJMXeWbNyKfiWd/Tom0O5/579U7PwDPdHK4LUcMrZeAcwRUMUY0NJLHxUY6mvT2lp6BmBM2FjQGrUBtp6Y0M02',
+              '0o3+1TT4vQ0vTKBsRS8/6xUiq8vjCF+QYN8r7J5ZPSwpvxXollPyTx3VDzXKyhwJyqr+3widAbvgBnsSEEr8aZU90jEbvRP',
+              'Jk3SnIHlbHKhGbDMOj14nkQetns6M+C0Os47QAkekke3NtTwJw91g+dvH9tUBIwsdh8IMS89MSS75GVsjQqoJfN8MwW+jqf',
+              'D2k5kO1xrH7bQb63kK+qeN6xxiSjqBPem+t1zlR9fp2g9RsUmox/mQOiFL004MccYO7kjyhizfDQvTZ0yfKxmTlME87keAQ',
+              'mW4MBTg95kf53mX8y8ynxzOcWD8z0wXwHzHgRyEPwRJ3kxD9Hz2juu6MLuLaAkCg4Woc35IHaO8mRBWkk8O/Y2bvVHjay0K',
+              'uVj444+GOVKDDjTAS8oTBwkOYz78SMb5K5w0JUmv8k8iHf65oFmLuum+O4dnKcDBbB62ItiLfjugwczuOgl96eIs6VMTPYJ',
+              'h3Qfk+a7Nb1Ll0bqtUW1RDFpk3Wa2QC9maliQ93QkC4ofVmlu6+GyrU9eR5vtoaLmgeDgm2kMnBgyl+tj85DQz1RS8Mq+EX',
+              '+8ru0r1Z0u8vOTL1T5WfXXp/I9ih5U7Puxy04NkuiBFA3/Eh4g63+0Z3+iHBrQ0Ms0/ffMkYQr6Moz2ZeJnFyFnmrJE5q/Q',
+              'rM5anygKJwejTcooJiiYDOGWPtHkVMsDXsKgswbaeWL6TypvSE2/FfTED1feokxB75yURXuP57BD+5gSdzkRv9JxKqhrJpj',
+              'VhTg1YR58+NhTIOyQDApkkJZh4gN9xw73QbOl49iCIfxOptglZXV8Lp2UFfvUXDqkwmXnBGFFMaoHc4R49lTQE3VZmFfeEz',
+              'FLX7Bs1Lauwe+ZzVNwsMb4s8XF/IJKcq45gzl1/X/ZiVLgMraYxvkSVv1V1Lbs25tOXWfZqmxtOw9wdDdevpqjrrld4XaWi',
+              'qhs33UhmZbM9ohu0FNzz+idyG/KzKr2WuGk77rY1RK93JijfeioQ+VslsX8x1Z+v7wGNKx2oaphxZp81jY7UH9bwvR1Lp0u',
+              'T77yNVyig7P6z7KLHwdVB6gZd8sRgCXAMeU8m+OCZfQJjBEqpXeCXnnoI+tLXpWBg9dTSfLT8n+xM8t0wMi0WHGIKia3z6o',
+              'HTI1DgMNbwae5CfJo2exx9AI7sDnJAMp7+RqIRBNxdj3rWiNECTqcgw62L3GoLeV28ZXHOsMYhcUBJu3XL7qEQ3NDbWp3QW',
+              'hMYM5dX6qch85dIpxaYDggTOI0UkdvTZWtS6ZVGkR5Vyx/SlyUkuaJev+XFcLEURzpDfaGodHI/O1zVWvgznoAdj9jwx+Sj',
+              'Zi/B1Tp3xH+u84lzhO/N+tnFr687t2yMWw3eGR4P+7aYc3rp1yXA1cTe8WNzVh2tI5XYxXJfV4ZG/WGHN8fpgc9hP64M2kn',
+              'w3McfX7nE8JpfJuHw0XWV4/f+E+qIOp82tC+H0Use6E3PsFhVBPZSFncgy8ZhhuNOtTQpWC25p6JZdd04vS3fsIJ+FoXKkz',
+              'iIgXOu99Wp1fD/C7H+NOSNp+T4+iuL7eLF94Vwn9nD9Or5Dugf0ob32UHVA+spkj+6ozFiMFo2GR7WRy9aPyoQx1XouIkFv',
+              's7SsotFJI2i0CIICYMeUa/MmbUfbcff8Tkjy9jqNEoAjhwhtp3JWo46wQuG0CCOR31wE+wJROQvNIpU5QVJAe76NcoYq9jC',
+              '/5M++KzNYVvvzMCsNIIpBlokplKbP7IdrZEIDI4HkTgZa3H0RzmV3F7dzCTB+9fjpL2yntDguaf1sZ3vnw2f+ew+fVn1u2v',
+              '6LZIpqSrHOS38+mMZVY7lFSp6pZeNgQ+ieu/SqdKdWOobNTDx6EKvAgwHyW4s5HAqIuL0MA/0UcitEqldSGgYUzBEnevwLO',
+              'GdGaqM9QjlHibEd9ZQSCVXM1w7SsDMjJHJAYC2TubPOIspLqLDTfGqQHoCGce/zS5kUCIA+9Sc2EVXUJUn72f2nD5/s1PNO',
+              'yOPkoYrgIn7mnTKxhWqq9KsuHzjltHTrg9DtVE86q7CjvGZoa49hk/rVuAaAGux3VPLKvOr7ZxV1aHmx6NwcL7vAKxSjsaH',
+              'o2U7lu7MnrKDSpXb15MKk9shHi+5un/tEX3k/276BzBXDXjdsSymuPzYiyl8oCJSvEOhuxcbbTJWS+nsVi/wdBlYrnb/VDd',
+              'kOn3O9mU0AV1q9dpznjKq/syYQ/E08yGdgJqE5cWfrAovSVqE+FVV6o25T688r/njOi38Xg+9T7d54eXaayq893Gif6E/bN',
+              'TIBHYU81QNDhEbj0WBoPPFgJMpUN7wJQPKNWxvYP6Y0ciHf4yViBC6S5p2XLekjRpDuR4qXw6K/MENyuG9+N4OvqH9P//9X',
+              '48ppa+4MUTKcHX06hhl14khXFol++R+/AFAZ0ELudJOuDfJj8PmVeBMZdOcAjs0HlW/z0sZ4nj2q1JaTk/o9pG0yImByeRP',
+              'pw7h8ygmsphFQKqznMqEDUs/nvFPFo9WdArxi9lLlqo0wwoy3ZLQT0QLNjkqXtBdiFeAjgXaV7t6SBFW99sh1oGbhyqH/nd',
+              'FgC3ovAG9A6h0TCkyBVdsnlfAyktzw5hgJ765jo3iigCJuBfbrD4Ybm7e23rl9x9Zz3zQvcykHx1IMTjzPnuM+aWSjSS1GQ',
+              'AqKN1YCx6HTlWSBFp8SMJo38K7sC9VVsivaxYZHB//zIbqO23OVt9QwQIEJQRtGG9LOoWIqGs4uoNlD1DKzEBBeV5b5v8zg',
+              'lXf10FMfrDxUe8HoOk6FE09lPM4JDvb4K2nkOGyCajwjDgIKTVsFIIqya6I27d498GIUqEdVuBAbIcxxTnykEwjqaGxXk9N',
+              'BcApc06+F6ZQHY7tcnz3p9vhhAh1u1zG/8p7HT2UfYFja2AROsNG/ObAbw/PjKrxChpJtRHa6PcPwvecOtswx4uNOczNM2e',
+              'dCwNxlm6aictLPU1bG9sHgHR+sxAU9fUqR+Pk85IvLjaS9RjSozWFYZv+W3u7G3vsbtYB729Kbae5tepYWd2o8znpjIHob7',
+              '3pBozxoxLBlrAqfdVLzOmWUfTCa1KYrF6l4kpvje6smgVaNkgPQ/V+ke1qLFrW6YieSEv/K3OtqrOrayX8BPMQ/Gw==',
+          ]
+          patches=json.loads(zlib.decompress(base64.b64decode(''.join(chunks))))
+          required={'v21_storyflow.py','test_v21_storyflow.py','test_v21_end_to_end_mocked.py'}
+          if set(patches)!=required: raise SystemExit('Unexpected patch payload')
+          for name, content in patches.items():
+              ast.parse(content,filename=name)
+              (root/name).write_text(content,encoding='utf-8')
+
+          app=root/'app.py'
+          source=app.read_text('utf-8')
+          marker='install_v20(globals())'
+          if marker not in source: raise SystemExit('V20 must be deployed before installing V21')
+          suffix='\n# V21: natural speech, story-first and no-replay video\nfrom v21_storyflow import install as install_v21\ninstall_v21(globals())\n'
+          if 'install_v21(globals())' not in source:
+              source+=suffix
+          old_style='Natural friendly Thai narrator, clear pronunciation, measured documentary pace'
+          new_style=('Authentic conversational Thai storyteller: lively but accurate, natural ordinary adult '
+                     'speaking speed, fluent expressive rhythm, clear Thai, short purposeful pauses '
+                     'only at the ends of sentences. No slow dramatic delivery, robotic cadence, '
+                     'long silences, or exaggerated theatrical acting.')
+          if old_style in source:
+              source=source.replace(old_style,new_style,1)
+          elif new_style not in source:
+              raise SystemExit('Unexpected Gemini TTS style source')
+          app.write_text(source,encoding='utf-8')
+
+          docker=root/'Dockerfile'
+          d=docker.read_text('utf-8')
+          if 'v21_storyflow.py' not in d:
+              if 'v20_proxy.py' not in d:raise SystemExit('Unexpected Dockerfile')
+              d=d.replace('v20_proxy.py','v20_proxy.py v21_storyflow.py',1)
+              docker.write_text(d,encoding='utf-8')
+
+          index=root/'site/index.html'
+          html=index.read_text('utf-8')
+          if 'ความยาวเป้าหมาย (ให้ความสำคัญกับเสียงธรรมชาติ)' not in html:
+              original='ความยาวคลิป (60 วินาทีแบบเป๊ะ)'
+              if original not in html:raise SystemExit('Unexpected duration label')
+              html=html.replace(original,'ความยาวเป้าหมาย (ให้ความสำคัญกับเสียงธรรมชาติ)',1)
+              index.write_text(html,encoding='utf-8')
+
+          test=root/'test_v13_safety.py'
+          code=test.read_text('utf-8')
+          needle="__import__('v20_proxy').VERSION)"
+          replacement="__import__('v20_proxy').VERSION, __import__('v21_storyflow').VERSION)"
+          if replacement not in code:
+              if needle not in code:raise SystemExit('Unexpected current version test')
+              code=code.replace(needle,replacement,1)
+              test.write_text(code,encoding='utf-8')
+
+          # Old end-to-end fixtures explicitly verify legacy exact-60 mode;
+          # new V21 fixture verifies natural-speed 55s response and shot continuity.
+          for name in ['test_v17_end_to_end_mocked.py','test_v18_end_to_end_mocked.py']:
+              f=root/name
+              code=f.read_text('utf-8')
+              if "'editorial_v21':False" not in code:
+                  anchor="'font_style':'bold'}"
+                  if anchor not in code:raise SystemExit('Unexpected legacy fixture: '+name)
+                  code=code.replace(anchor,"'font_style':'bold','editorial_v21':False}",1)
+                  f.write_text(code,encoding='utf-8')
+
+          for file in root.glob('*.py'):
+              ast.parse(file.read_text('utf-8'),filename=str(file))
+          print('V21 installed in staging; zero Gemini calls')
+          PY_PATCH
+
+      - name: Run offline regression suite
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q -m 'not slow'
+
+      - name: Render actual V21 39-second MP4 with mocked Gemini
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q 'test_v21_end_to_end_mocked.py::test_natural_speech_continuous_one_scene_per_sentence[39.0]'
+
+      - name: Render actual V21 55-second MP4 with mocked Gemini
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q 'test_v21_end_to_end_mocked.py::test_natural_speech_continuous_one_scene_per_sentence[55.0]'
+
+      - name: Save only if both offline test groups pass
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/v21_storyflow.py ai-clip-studio/test_v21_storyflow.py ai-clip-studio/test_v21_end_to_end_mocked.py ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/site/index.html ai-clip-studio/test_v13_safety.py ai-clip-studio/test_v17_end_to_end_mocked.py ai-clip-studio/test_v18_end_to_end_mocked.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'V21 story-first Thai narration, natural speed, forward-only scenes'
+            git push origin HEAD:main
+          fi
