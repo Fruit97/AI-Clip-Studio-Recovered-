@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 import wave
 
-VERSION = 'v18-voice-pacing-quota-safe-2026-10-31'
+VERSION = 'v19-correct-short-voice-tempo-boundary-2026-10-31'
 TARGET = 60.0
 RATE = 48000
 
@@ -79,8 +79,8 @@ def fix_short_voice(wav):
     target_spoken = 59.6 - planned_gap
     tempo = seconds / target_spoken
     # For 39s with no pauses: tempo ~0.654. With 8 breaks: tempo ~0.728.
-    if not (.55 <= tempo <= .83):
-        raise RuntimeError('เสียงพากย์สั้นเกินไปสำหรับปรับเป็นหนึ่งนาที')
+    if not (.55 <= tempo <= .95):
+        raise RuntimeError('ไม่สามารถปรับจังหวะเสียงพากย์ที่บันทึกไว้เป็น 60 วินาทีได้')
     stretched = wav.with_name('v18_voice_stretched.tmp.wav')
     assembled = wav.with_name('v18_voice_60.tmp.wav')
     try:
