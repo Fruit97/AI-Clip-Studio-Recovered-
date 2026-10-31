@@ -899,3 +899,7 @@ install_v26(globals())
 # V27: one source-grounded reanalysis if the first script does not match enough footage
 from v27_replan import install as install_v27
 install_v27(globals())
+
+# V28: accurate subject illustrations and visual coverage diagnostic
+from v28_alignment import install as install_v28
+install_v28(globals())
