@@ -13,9 +13,9 @@ VERSION = 'v20-adaptive-proxy-2026-10-31'
 def proxy_profiles(seconds):
     """Cheap profiles first, with a more conservative fallback on failure."""
     if seconds > 180:
-        return [(True, 2, 384, 360), (True, 1, 320, 240)]
+        return [(False, 2, 384, 600), (True, 2, 384, 360)]
     if seconds > 60:
-        return [(True, 4, 480, 300), (True, 2, 384, 210)]
+        return [(False, 3, 480, 480), (True, 2, 384, 300)]
     return [(False, 6, 512, 240), (True, 3, 384, 150)]
 
 

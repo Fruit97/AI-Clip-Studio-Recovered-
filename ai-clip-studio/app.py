@@ -907,3 +907,11 @@ install_v28(globals())
 # V29: correct already-used shot priority and raw audit snapshot
 from v29_verified_selection import install as install_v29
 install_v29(globals())
+
+# V30: full-frame proxy, source coverage before TTS, bounded deep inspection
+from v30_source_first import install as install_v30
+install_v30(globals())
+
+# V30 verified correction: exact video frames and safe resume
+from v30_render_reliability import install as install_v30_render
+install_v30_render(globals())
