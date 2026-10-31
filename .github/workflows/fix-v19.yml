@@ -1,0 +1,122 @@
+name: V19 Fix Voice Pacing Boundary Without Gemini Calls
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v19.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 (same as Render)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install media tools and offline test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Patch V18 false rejection of natural voice tempo
+        shell: bash
+        run: |
+          python - <<'PY_PATCH'
+          from pathlib import Path
+          import ast
+          path = Path('ai-clip-studio/v18_voice.py')
+          code = path.read_text('utf-8')
+          patches = (
+              ('if not (.55 <= tempo <= .83):',
+               'if not (.55 <= tempo <= .95):'),
+              ("VERSION = 'v18-voice-pacing-quota-safe-2026-10-31'",
+               "VERSION = 'v19-correct-short-voice-tempo-boundary-2026-10-31'"),
+              ("raise RuntimeError('เสียงพากย์สั้นเกินไปสำหรับปรับเป็นหนึ่งนาที')",
+               "raise RuntimeError('ไม่สามารถปรับจังหวะเสียงพากย์ที่บันทึกไว้เป็น 60 วินาทีได้')"),
+          )
+          for old, new in patches:
+              if old not in code:
+                  raise SystemExit('Unexpected project revision. Refusing unsafe patch: '+old)
+              if code.count(old) != 1:
+                  raise SystemExit('Ambiguous patch location')
+              code=code.replace(old,new,1)
+          ast.parse(code, filename=str(path))
+          path.write_text(code,'utf-8')
+          print('Voice tempo boundary fixed; no Gemini API calls')
+          PY_PATCH
+
+      - name: Add regression test for multi-pause speech
+        shell: bash
+        run: |
+          cat > ai-clip-studio/test_v19_voice.py <<'PY_TEST'
+          """Regression for the real V18 VOICE failure with many speech pauses."""
+          import math
+          import subprocess
+          from array import array
+          from pathlib import Path
+          import wave
+          import pytest
+          import v18_voice as v18
+          import v15_60seconds as v15
+
+          def make_voice(path, seconds, quiet_gap):
+              rate=24000
+              pause_samples=round(quiet_gap*rate)
+              blocks=13
+              voice_samples=round((seconds*rate-12*pause_samples)/blocks)
+              assert voice_samples>rate
+              signal=array('h', (int(9000*math.sin(i*2*math.pi*370/rate))
+                                  for i in range(voice_samples)))
+              with wave.open(str(path),'wb') as f:
+                  f.setnchannels(1); f.setsampwidth(2); f.setframerate(rate)
+                  for n in range(blocks):
+                      f.writeframes(signal.tobytes())
+                      if n<12:
+                          f.writeframes(b'\x00\x00'*pause_samples)
+
+          @pytest.mark.parametrize('seconds,gap',[(43.8,.80),(44.9,.70),(45.9,.68)])
+          def test_false_short_narration_error_from_many_pauses(tmp_path, seconds, gap):
+              import app
+              wav=tmp_path/'voice.wav'
+              make_voice(wav, seconds, gap)
+              pauses=v18._quiet_pause_times(wav)
+              assert len(pauses)>=9
+              tempo=v15._voice_duration(wav)/(59.6-min(9.,.75*len(pauses)))
+              assert .83<tempo<.95
+              assert v15.ensure_voice_60(wav)==60
+              assert abs(v15._voice_duration(wav)-60)<.018
+              before=wav.stat().st_size
+              assert v15.ensure_voice_60(wav)==60
+              assert before==wav.stat().st_size
+          PY_TEST
+
+      - name: Run offline unit and regression tests
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q -m 'not slow'
+
+      - name: Render 60 seconds with mocked 39-second narration
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q test_v18_end_to_end_mocked.py
+
+      - name: Commit only after every offline test passes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/v18_voice.py ai-clip-studio/test_v19_voice.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'V19 fix false voice length error with spoken pauses'
+            git push origin HEAD:main
+          fi
