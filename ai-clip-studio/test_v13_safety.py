@@ -56,7 +56,7 @@ def test_500_is_not_automatically_retried():
 
 def test_live_app_wired_to_v11_v12_v13():
     import app
-    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION, __import__('v17_quality').VERSION, __import__('v18_voice').VERSION, __import__('v20_proxy').VERSION, __import__('v21_storyflow').VERSION)
+    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION, __import__('v17_quality').VERSION, __import__('v18_voice').VERSION, __import__('v20_proxy').VERSION, __import__('v21_storyflow').VERSION, __import__('v22_scene').VERSION)
     assert app.app.state.v11_semantic_grounded
     assert app.app.state.v12_capacity_fallback
     assert app.app.state.quota_aware

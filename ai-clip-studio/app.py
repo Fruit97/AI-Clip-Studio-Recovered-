@@ -875,3 +875,7 @@ install_v20(globals())
 # V21: natural speech, story-first and no-replay video
 from v21_storyflow import install as install_v21
 install_v21(globals())
+
+# V22: preserve continuous camera takes across synthetic partitions
+from v22_scene import install as install_v22
+install_v22(globals())
