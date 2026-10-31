@@ -891,3 +891,7 @@ install_v24(globals())
 # V25: adaptive evidence-grounded source shots before TTS
 from v25_adaptive import install as install_v25
 install_v25(globals())
+
+# V26: allow independently verified multiple real shots per full sentence
+from v26_multishot import install as install_v26
+install_v26(globals())
