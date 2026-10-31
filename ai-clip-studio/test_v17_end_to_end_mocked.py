@@ -57,7 +57,7 @@ def test_full_pipeline_60_seconds_mock_gemini_real_ffmpeg(tmp_path,monkeypatch):
         raise AssertionError('Unexpected API: '+url)
     monkeypatch.setattr(app,'get_json',fake_api)
     opts={'length':60,'tone':'สารคดี','voice':'female','keep_sound':True,
-          'captions':True,'aspect':'9:16','font_style':'bold'}
+          'captions':True,'aspect':'9:16','font_style':'bold','editorial_v21':False}
     app.process(jid,str(target),'','test_fake_key_123456789',opts)
     assert app.jobs[jid]['state']=='done',str(app.jobs[jid])
     assert calls==['SCRIPT','TTS']

@@ -355,7 +355,7 @@ def tts(client, script, key, voice, wav_path):
     voice_name = 'Puck' if voice == 'male' else 'Kore'
     body = {'model': TTS_MODEL,
             'input': [{'type': 'user_input', 'content': [{'type': 'text', 'text': script,
-                       'annotations': [{'type': 'speech_metadata', 'style': 'Natural friendly Thai narrator, clear pronunciation, measured documentary pace'}]}]}],
+                       'annotations': [{'type': 'speech_metadata', 'style': 'Authentic conversational Thai storyteller: lively but accurate, natural ordinary adult speaking speed, fluent expressive rhythm, clear Thai, short purposeful pauses only at the ends of sentences. No slow dramatic delivery, robotic cadence, long silences, or exaggerated theatrical acting.'}]}]}],
             'response_format': {'type': 'audio'},
             'generation_config': {'speech_config': [{'voice': voice_name}]}}
     try:
@@ -871,3 +871,7 @@ install_v18(globals())
 # V20: resource-aware PROXY without extra Gemini calls
 from v20_proxy import install as install_v20
 install_v20(globals())
+
+# V21: natural speech, story-first and no-replay video
+from v21_storyflow import install as install_v21
+install_v21(globals())
