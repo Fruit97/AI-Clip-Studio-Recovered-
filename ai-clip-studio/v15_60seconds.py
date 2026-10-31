@@ -9,12 +9,12 @@ import threading
 from pathlib import Path
 import subprocess
 
-VERSION='v15-60-second-delivery-2026-10-31'
+VERSION='v17-60-second-voice-quota-safe-2026-10-31'
 TARGET=60.0
 FPS=30
 FRAME_COUNT=1800
 MIN_SPEECH=46.0
-MAX_SPEECH=75.0
+MAX_SPEECH=85.0
 
 
 def _voice_duration(source):
@@ -23,7 +23,7 @@ def _voice_duration(source):
 
 
 def ensure_voice_60(wav):
-    """Audio-duration correction with 0.80x..1.25x natural speech tempo.
+    """Audio-duration correction with 0.80x..1.45x pitch-preserving speech tempo.
 
     Short tail <= 2.5s is room tone rather than long silence. Reject clips
     requiring severe speech stretching or chopping words off the end.
@@ -36,11 +36,12 @@ def ensure_voice_60(wav):
     if not (MIN_SPEECH <= duration <= MAX_SPEECH):
         raise RuntimeError(
             'เสียงพากย์ยาว '+str(round(duration,1))+' วินาที ไม่พอดีสำหรับคลิป 60 วินาที '
-            '(ต้องอยู่ประมาณ 46–75 วินาที) เพื่อไม่ให้เสียงเร็วหรือช้าจนผิดธรรมชาติ '
+            '(ต้องอยู่ประมาณ 46–85 วินาที) เพื่อไม่ให้เสียงเร็วหรือช้าจนผิดธรรมชาติ '
             'กรุณาใช้วิดีโอที่มีเนื้อหามากขึ้นหรือปรับบทให้เหมาะกับหนึ่งนาที')
-    # Limit speed modifications to +-25%. If speech is slightly shorter after
-    # stretching, apad provides a small outro instead of inserting fake lines.
-    speed=min(1.25,max(0.80,duration/59.25))
+    # One TTS call only. If Gemini spoke 78.7 seconds (real observed case),
+    # FFmpeg atempo=1.328 safely brings the already-generated WAV to 59.25s.
+    # No paid retries or destructive cropping of words.
+    speed=min(1.45,max(0.80,duration/59.25))
     stretched=duration/speed
     if stretched>60.10 or stretched<57.50:
         raise RuntimeError('เสียงพากย์ที่สร้างมาสั้นหรือยาวเกินไปสำหรับหนึ่งนาทีโดยไม่เร่งหรือยืดเสียงผิดธรรมชาติ')
@@ -123,8 +124,8 @@ def install(ns):
         if int(length)==60:
             prompt+=(
                 ' EXACT ONE-MINUTE EDITORIAL NARRATION. Aim for 56-63 seconds spoken Thai '
-                'at a natural comfortable pace (around 620-820 Thai characters), '
-                'roughly 12-18 substantive evidence-backed narration beats with interesting '
+                'at a natural comfortable pace (around 445-535 Thai characters), '
+                'roughly 8-13 concise evidence-backed narration beats with interesting '
                 'hook, development, and clear conclusion. Favor detail that ACTUALLY APPEARS '
                 'in source, and never invent claims or match unrelated images merely to reach time.'
             )
@@ -180,5 +181,5 @@ def install(ns):
     def info():
         return {'version':VERSION,'default_duration_seconds':60,'exact_duration_seconds':60,
                 'fps':30,'frames':FRAME_COUNT,'extra_gemini_requests':0,
-                'speech_speed_limits':[0.80,1.25],
+                'speech_speed_limits':[0.80,1.45],
                 'check':'ffprobe validates video frames and final media duration'}

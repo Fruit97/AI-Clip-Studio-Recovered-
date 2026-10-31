@@ -1,11 +1,22 @@
-# AI Clip Studio V15 — Exactly One Minute (30 FPS)
+# AI Clip Studio V17 — Quota-Safe One-Minute Editor
 
-V15 builds on the recovered V14 source. When selecting 60 seconds (the new UI default), it targets a script for one minute, checks voice tempo, and validates the exported MP4 has exactly 1,800 frames at 30 fps and a total duration of ~60.00 seconds (within 0.05 seconds of media container rounding). It does not fabricate footage. Longer clips and visually rich sources work best; clips shorter than 35 seconds are rejected for 60-second mode rather than looped blindly. Gemini quotas still apply. No extra Gemini request is made for duration adjustment.
+Source code: `ai-clip-studio/` with Dockerfile at `ai-clip-studio/Dockerfile` (context `.`).
 
-Render: Docker, context '.', Dockerfile 'ai-clip-studio/Dockerfile', branch 'main'.
+V17 improvements, October 31 2026:
+- Fixes observed VOICE failure: Gemini TTS produced 78.7 s for a requested 60 s edit. The existing WAV is adjusted locally with FFmpeg pitch-preserving atempo to 60 s, within bounded reasonable speed, rather than paying for another TTS request. Never cuts off words deliberately.
+- Reduces 60-second script prompt target to ~445–535 Thai characters; trims overlong narratives by *whole visually grounded beats* before paid TTS and refuses insufficient footage/script *before* paid TTS.
+- Preserves both raw Gemini analysis (`analysis-raw-v17.json`) and validated analysis in job checkpoints; if local validation fails, resume does not repeat a previously completed analysis request.
+- No automatic Gemini 429, timeout or HTTP 5xx retries (quota-conscious). No extra model calls for duration correction.
+- Retains V14 semantic video-to-narration shot matching, V16 short-segment render fix, 720x1280 30fps 1800-frame output, and original-audio/subtitle behavior.
+- Includes offline regression tests and an end-to-end simulated Gemini -> local FFmpeg one-minute MP4 test.
 
-Automated restore ZIP filename: AIClipStudio_V15_OneMinute_FullSource.zip
+Test commands (local Docker-style dependencies need FFmpeg/fonts installed):
+```
+cd ai-clip-studio
+python -m pip install -r requirements.txt pytest
+python -m pytest -q -m 'not slow'
+python -m pytest -q test_v12.py::test_renders_original_media_with_repetition
+python -m pytest -q test_v17_end_to_end_mocked.py
+```
 
-Run tests locally: `cd ai-clip-studio && python -m pytest -q test_v11.py test_v12.py test_v13_safety.py test_v14_semantic.py test_v15_60seconds.py`
-
-This package is a full source ZIP, not an APK. Successful local tests do not guarantee remote Gemini API availability, quota, or live server rendering performance.
+Gemini API was intentionally NOT contacted during testing. Actual model speech duration varies; voice clips outside the supported 46–85 seconds are rejected rather than sped up unnaturally or cut off. Render Free local checkpoints may disappear when the service restarts or is redeployed. The user should avoid redeploying with an active job. There is no guarantee of 100% success for all inputs.

@@ -859,3 +859,7 @@ install_v14(globals())
 # V15: one-minute editorial delivery with exact 1800-frame verification.
 from v15_60seconds import install as install_v15
 install_v15(globals())
+
+# V17: prevent oversized voice requests before paid TTS.
+from v17_quality import install as install_v17
+install_v17(globals())

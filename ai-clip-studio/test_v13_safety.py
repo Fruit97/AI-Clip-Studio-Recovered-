@@ -32,33 +32,31 @@ def test_read_timeout_never_replays_post():
     assert len(calls)==1
 
 
-def test_503_retries_bounded_and_succeeds(monkeypatch):
-    monkeypatch.setattr(v13_safety.time,'sleep',lambda seconds:None)
+def test_503_is_not_automatically_retried():
     calls=[]
     def failing(*a,**kw):
         calls.append(1)
-        if len(calls)<3:raise RuntimeError('Gemini API (503): high demand')
-        return {'ok':True}
-    ns=make_ns(failing)
-    assert ns['get_json'](None,'POST','https://generativelanguage.googleapis.com/v1beta/x','fake-key')=={'ok':True}
-    assert len(calls)==3
-
-
-def test_503_stops_after_3(monkeypatch):
-    monkeypatch.setattr(v13_safety.time,'sleep',lambda seconds:None)
-    calls=[]
-    def failing(*a,**kw):
-        calls.append(1)
-        raise RuntimeError('Gemini API (503): unavailable')
+        raise RuntimeError('Gemini API (503): high demand')
     ns=make_ns(failing)
     with pytest.raises(RuntimeError,match='503'):
         ns['get_json'](None,'POST','https://generativelanguage.googleapis.com/v1beta/x','fake-key')
-    assert len(calls)==3
+    assert len(calls)==1
+
+
+def test_500_is_not_automatically_retried():
+    calls=[]
+    def failing(*a,**kw):
+        calls.append(1)
+        raise RuntimeError('Gemini API (500): upstream issue')
+    ns=make_ns(failing)
+    with pytest.raises(RuntimeError,match='ไม่เรียก API ซ้ำ'):
+        ns['get_json'](None,'POST','https://generativelanguage.googleapis.com/v1beta/x','fake-key')
+    assert len(calls)==1
 
 
 def test_live_app_wired_to_v11_v12_v13():
     import app
-    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION)
+    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION, __import__('v17_quality').VERSION)
     assert app.app.state.v11_semantic_grounded
     assert app.app.state.v12_capacity_fallback
     assert app.app.state.quota_aware

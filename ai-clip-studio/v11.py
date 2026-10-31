@@ -16,7 +16,7 @@ import tempfile
 import time
 import unicodedata
 
-VERSION = "v11-grounded-editorial-2026-10-30"
+VERSION = "v16-frame-aware-render-validation-2026-10-31"
 WIDTH, HEIGHT, FPS = 720, 1280, 30
 IMAGE_HEIGHT = 952
 SEGMENT_MAX_SECONDS = 4.5
@@ -295,12 +295,14 @@ def render_one(source,voice,dest,ass,segment,has_audio,keep_sound):
                '-x264-params','ref=1:bframes=0:rc-lookahead=0:sync-lookahead=0',
                '-r','30','-fps_mode','cfr','-pix_fmt','yuv420p','-g','30',
                '-c:a','aac','-b:a','112k','-ar','44100','-ac','2','-movflags','+faststart',str(dest)],timeout=200)
-    # Accept valid short video segments.
+    # A 90-110 ms cut still contains 3 valid frames at 30 fps. The previous
+    # fixed .12-second probe rejected such playable MP4 parts around 80%.
+    # Validate relative to the requested cut length rather than a fixed floor.
     expected_min = min(.12, max(.067, float(duration) * .70))
     if not media_ok(dest, expected_min):
         raise RuntimeError(
-            f'ส่วนวิดีโอที่ตัดต่อไม่สมบูรณ์: '
-            f'{float(duration):.3f} วินาที')
+            f'ส่วนวิดีโอที่ตัดต่อไม่สมบูรณ์: ช็อตที่ {float(start):.3f} วินาที '
+            f'ความยาว {float(duration):.3f} วินาที (ตรวจขั้นต่ำ {expected_min:.3f})')
 
 
 def render_timeline(ns,jid,source,voice,folder,beats,source_duration,source_audio,voice_duration,opts,shots):
@@ -329,6 +331,47 @@ def render_timeline(ns,jid,source,voice,folder,beats,source_duration,source_audi
         ffmpeg_run(['-f','concat','-safe','0','-i',str(manifest),'-c','copy','-movflags','+faststart',str(tmp)],timeout=180)
         if not media_ok(tmp,.5):raise RuntimeError('รวมไฟล์วิดีโอไม่สมบูรณ์')
         tmp.replace(final)
+
+    # Normalize only when the joined video differs from CFR 30.
+    checked = subprocess.run(
+        ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+         '-show_entries', 'stream=avg_frame_rate',
+         '-of', 'default=noprint_wrappers=1:nokey=1', str(final)],
+        capture_output=True, text=True, timeout=25)
+
+    if checked.returncode or checked.stdout.strip() != '30/1':
+        normalized = folder / 'v17_cfr30.tmp.mp4'
+        ffmpeg_run([
+            '-i', str(final),
+            '-map', '0:v:0',
+            '-map', '0:a:0?',
+            '-vf', 'fps=30,setpts=N/(30*TB)',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-crf', '23',
+            '-threads', '1',
+            '-pix_fmt', 'yuv420p',
+            '-r', '30',
+            '-fps_mode', 'cfr',
+            '-c:a', 'copy',
+            '-movflags', '+faststart',
+            str(normalized)
+        ], timeout=900)
+
+        if not media_ok(normalized, .5):
+            raise RuntimeError('CFR normalization failed')
+
+        normalized.replace(final)
+
+        check2 = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+             '-show_entries', 'stream=avg_frame_rate',
+             '-of', 'default=noprint_wrappers=1:nokey=1',
+             str(final)],
+            capture_output=True, text=True, timeout=25)
+
+        if check2.returncode or check2.stdout.strip() != '30/1':
+            raise RuntimeError('Output is not constant 30 FPS')
     # Transcript metadata; captions are already embedded directly in segment bitstreams.
     srt=folder/'captions.srt'
     if not srt.exists():
@@ -371,10 +414,17 @@ def install(ns):
             afile=folder/'analysis-v11.json'
             analysis=read_json(afile)
             if not analysis:
-                import httpx
-                with httpx.Client(timeout=httpx.Timeout(540,connect=20,read=540,write=540,pool=20)) as client:
-                    analysis=analyze_proxy(ns,client,proxy,key,duration,shots,opts['length'],opts['tone'])
-                    analysis=normalize_beats(analysis,shots,duration)
+                # Save the *raw* Gemini result before local semantic/time budget
+                # validation. If normalization fails, resume MUST NOT repay the
+                # user's 20-per-day quota for the same completed analysis.
+                raw_file=folder/'analysis-raw-v17.json'
+                raw_analysis=read_json(raw_file)
+                if not raw_analysis:
+                    import httpx
+                    with httpx.Client(timeout=httpx.Timeout(540,connect=20,read=540,write=540,pool=20)) as client:
+                        raw_analysis=analyze_proxy(ns,client,proxy,key,duration,shots,opts['length'],opts['tone'])
+                    atom_json(raw_file,raw_analysis)
+                analysis=normalize_beats(raw_analysis,shots,duration)
                 atom_json(afile,analysis)
             stage='VOICE';ns['notify'](jid,51,'สร้างเสียงพากย์ภาษาไทยจากบทที่ตรงกับภาพ')
             wav=folder/'voice.wav'
