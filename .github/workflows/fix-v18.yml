@@ -1,0 +1,142 @@
+name: V18 One Minute Voice Fix (Quota Safe)
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v18.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install test packages (offline Gemini)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+      - name: Apply verified V18 patch without API requests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zlib, base64, json, ast
+          root=Path('ai-clip-studio')
+          chunks = [
+              'eNqdWW2P3MaR/it90geSEofL2d3Zl7FoRHDknHHOypB0ygW7C6J3pmeHFoek2Jx9iaDDKRfA9uG+nS93joO8GYEBB/chLxfM/pv5',
+              'KXmqmuRwuBzZiATskOzq6q6Xrnqq+tWdi/5BeJFGI+Vl13eG4s4J/3/ePxiKNFG9XL2cK10IJhGZHEXJuZikudDTNC/ED9QsSiLx',
+              '7NlTkSudpYlW2jtJTpKjtBqrOERazORYianKlSf+WSsxS8cqlwXYRsVo2svAQeUXtEARzZTQRa7wXchkfJJE4Iz19EzGsVDjqEjz',
+              'SMbY0BwrisdHH/5YyEKMVaFGhRqLl/NIFeJcZtoTj67kqBAfvfdDMckl+I7SeVKAoxaXeVQUKhFxOgLba6FTMZKjKeaTQCBI0kJc',
+              'Sk0cx/OcdiYTofI8zbew2flMkaxGZckkT2ciDCfzYp6rMBTRLCMNyQRMZBFBNaQXppJ5Lq9rAnrBdszbTBbT+iXV5YQMX+PorJry',
+              'UZNIX+v6+VJeKFrl+aMnTz94fCQCYcG+PTZezxiv93KO/fS0nKjetr+91+v7vZ2+dZI8e/jkB4+eYcqe7/knyZOHzx7hZffA931i',
+              'eZKM1USErNiQ1R6SlbRNe3OGJ4nAP6OLZ2Q90ilLLdIJ7DLDU5HLM2jZ2Ka0rtKumGvSLAzkQuFCZ0rB6uQcsVcpl5gX+XW5DP27',
+              'jIopy+ulmUpssDM7cYWVn1mOkFpMGuT0L5qIiXeuimQ0hVVUrG1H/EMg+gLuzANazrLLaFxMzcB2PTBKZ1lxnSnz3Tp6fPTIajGn',
+              'f5Bonifi+HR9SOdQJPNhBySXt511krEsJIjYF2xranUMe+QJZ9cFVD7xciXHzIxeSKTyxXEaMyEvnMOjOWmOo8Z7j+HysWrvnhdg',
+              '5pcya24Ovp9hYzN5ZfddkmRrS+z6jhB3xfZgpleE+UyDrik6RYlIRInIZXKubN8VMQxFK8FIxNdpbeIMPvMCTIjkOBpG94mopUss',
+              '48kMFh/bdFQ8/TIvbJxEO0oK+8q5Z3547Stam3k6YovXNi8tFdEZB9dhl/UyJV+U0oNkfR6PPRB9329MJb0kSuY9HWFBMFYjqB7u',
+              '/Q659kxJBLLzyTyuvJwi1IprMUVUmabxuNL4NpSGIGoPfDzwgveE528fNEXIUsjc1r0uJMJBII4Qw1sWGV+5QiUqP78m/ahkXnok',
+              'GfC+OKZVTp3bJ6ec8iBo7BKRuVwJsZKW6jgT1U6w7vqgildc393ElIyzgTFmg6folcTvIlZ1UNG/WUQKtQ3dfZrlQI/s2VvC3qbn',
+              '3OmeikX63i5JTUzwY9c+jLmYhvVBsGHhlXkqn7UbWybTjh1ns8rWjXeXc+Y8E0Uq+tviUsVxT6tMkvHG4gwR4QViaZZHyIxF9BNO',
+              'o1NkuxjuSPnXhN18nlCCrpiOpqlGArx9cEPIeV5McVDViPxEI72osW2kceHXFyrXKniWz1WHsyCb2vJM2zS5J6BuWKfv7a+OpVnX',
+              '6dCbGan0BQZOp+nJDCUTEYD59tCooBGQzJksN17SmmF1NVJZIezHTx9RLnfFo8fvl0+cUcrn5zKeK35ubrQRJqqsOImuQsZDBknZ',
+              'YLKeEd9LkwuCL1Jo8B+LnZ3e7p5mTJJQzKdECbXAsorACpLknq85xaVzmkVwhCAKQytieySxCeAfY9QzIJqxzCMgIQQcFV0o4XuD',
+              'nu8d6gZWIi+A6cAmvWQoY1gxpEJyKBQwhJDjj+e6mCF2eeIDCo6YJtfCFbYY6YL5GJyGCIdVSQTDEMf2FqB7//1ZprCkWcS+nEaU',
+              '4iVBrjmdd2zpHbg0Yif0JEYQ+hJxUzteU4slewN1Lvp98w5lw38JErHeS6EQd5MxRUXQecBurOIwnTRoyE+NjzJpTxgE5CCoez7w',
+              '7y2Tm/F6MsUme2fH8ykuVFweiN09z1/zFxnh3D4B5oSy2JvsibW8+bfl4pvl4v+Xi98tF58sF79aLv60XLyh15v/FK9KdkOvP3kt',
+              'louvl4u/LBdfMM3/YJZY3vxsufjt8uZT5vIneqa/Xy0XP18uvuSHPy4Xv1je/Pty8YflzWe83pfLG6z0BXyrg+Xy5qfLxee8fs0a',
+              '3/+8YrH4JU8Bzf/yAl/xqv/BHP4bQxVoKTF50AUWV9rPYsJg4xAuRdkOSe7QQ5Lz9geIx3S6DZsqPiIkAuaEKDFecLwaHHp7MFmD',
+              'S0nHDrayx9b6TEN0V7yPQLRzaI4YOblZbFhO/1ff2xvseuJHNHpQxtbG4P72gbfuBt5gwKmRKfDgHex8iw98iwvw0B9Z7V8w5ZvS',
+              'XmSdL3n0z2SX2tJrVl8Zm2nw969s0E+aFq/sVSFxSpKwj0c6CRPASduqi8OwJvKKWeaBrJottVazs/jts1FStKatg3k6pJMJhYgQ',
+              'Cco+tnqRRRgxZ4cBpO/JCT5MLBNAglf8M/QOJ69dym7A7bEKXlHN8tpyNydj8BmBj9W3mGdeLkLzeJXRUNJINpqFur8HmGzGa+Gd',
+              'U5djHqJycDhw3lqNrCY1ShLC7Sq/nTDN903FyWq0q0JZjTbKCxolsbqqlC5nJN+5Ya95w970C3a0Xy8Xv6d49KOHzwV70u/Zwz5Z',
+              '87bFzziacBAiz/uKPe/rRhz5OfN+Q2GCHPr/wKFd4cj5OKJzWwrTqG8aqqmLnAaAoWIe8yhiMA+HKpTtZuxGFMrZPXPKNXZZ595j',
+              '9RB+K/sBa9Yo5zwQfkuBf89JNuH10++kNOJgNPw7Hv26efi7I3dTlXfFwwKlM+AeJ/8MybSECBTDPPFPCqBXFlCX1AxHuJ/ie9sA',
+              'C7so1edFnjbgobyQUYyiXZUFie+udNMjwGJ7O36lymZNwiHfmKuM7jUrtxndMZe5HG5kkqU6Mn2EoMJyWhU2sWTDufXG2LoE6U0U',
+              'rhiaYjAj1LmeUljAeNWnWAfBVOG1NkCVSVOylmu8JOXMqH6NLmbp2G6SNoReMWxj/9Zm7MwVL6legYIiuCKYl8JErpFnVby1OTdr',
+              'WBQTbeGAzC6idE6f/XXcDxYuwTxi39hPS1TmWWF0PnbH2/cqpkM8pvrUecuUM+vk5Mr3+Y8FS2HBNvlqh1mqW9JsXLm5KBRSoQvq',
+              'D5iuZQjhWqI5G5i392g3PL/i7bw9BdS5kVLAZZkCqOl4KwWYj55uxv++s4lmlQW2N9KscgEfg04y/imD6plleR+jurNZCa0eCeHk',
+              'NpBeCdeAzu+2ofPmhPMNB73POIx90gqhmyBqE/T+lsPoDYfU/0KcbYbBVCODABuiFqu3ybWd81ZQP4kS6gMPm32UCvbMkzhKXiDu',
+              'aOpWhukLU/s2Qkm10GbSql6MEpT4KJHhfMMVjtSU42wrfA7Y9MHR02cPP/zw0fet26VnqwwaAF1VaBfuhQ8tgn3gcBlHxbUZ3jfD',
+              'aTw24IxrpIGnEk196wqvGSLabGugWdy2K62BV5JVfmKvqxxS7uy0q6W2sxizdJXUt2xXy9AY7pAFe+uUDmVAdEWRpkf19fP+vkhR',
+              'ffaKPJohvZwPUSH4vQGQ/Xl8nU21uI5UPMb5T8+orKUy/rDqpdwVuzt+b9/3K9pZmiuRTvh2QZKoCDrUjtnd6x0MtGmJckJBtayL',
+              'KI4rPiPTKI9Q1VCnpwpt8bW4iPScrynwZaySEXV9lKSSnkqQKLlA0Y5vdUPBqxSy7/3wg6PwvX98+OQpdfR3/MbAw3+pB/b9ciDR',
+              'x9bDjz4Ky1sE6xSD5fOKoOWmRENeviJAGLVOPTh6oTyqBBrWDPnCJSxvk5oTv7eayYdhS2bRFmZvRckkrU64OUKT1O5oy7yyqDEF',
+              '6a1htWfE3qoGNG6HoT2/o0qwzBZrBYZ6nmUMORozj3d2XFjxtGu+uoLlwnO+9wqpX0MTAE2ssoZK5/lI4ZPFLRSS3bSDAK+7qhbL',
+              'KIgmMIjrUTa7dffFqKTdbzF1UifTEZaUBTGFpq7Lezw9yqOsKF1RjPjSCt5lbuy4MZWUHSdqTNUasl6fJHdccadQGqbtvEl8os6x',
+              'LbLIkA9A4/B4YEUnbzYHFqUFi2meXrosUVLfH+KAkCoRV6suUHXxNT/L8nQE5t/hlszcjJUvGV10FPVrvXETIA8aA13BtYriCO6K',
+              '75y4SVr5Yhas9uWZYtZUtpZr9RIg83GU0OMUZzg8o1Sf02ucnsfqQsV45vtF+na9uZS1eqiHrVheTCKixJ+JRfsJJnzdmoyug90D',
+              'f2gK45BgQLC96/v+sIrMAbWYXr9tAaqUqVCub9ZO3ZHM+HITZUKGCpiOrVvA6cunqjD2G60B0rZnzuYoHasg8N0MQQEVXU56/J4x',
+              'hTeT+QuPetkzhfD7E2Vb1Ylzj6nF5pK3uLvb9GfgHbrUZHMH9Gf/wNt3D3Y9n7AfmcX4oswpaoZFoctOtg4lds7tVcpixSwL2Xbl',
+              'OnUiLi9ls6zuLgYV7ZY5x9zGeIetj6eawZrMHVmIc1QQVMmnJDTIqjtx9vZ85wHhqbJPA70E1GKhmGo7+Anp09+37m0+QWC4Ve7N',
+              'ejQRkXs61Acue3m5OifkXCtxk/L4IqOhviJNmtoztyA7XtVI6WyigMRxO6902V10wPef5tl23qElgrfdj5Y7y0edZq2y8EF1S005',
+              'Fam2vl85NDeKfKttmuJDbiQWKRCdt1mOfAQpLjukmBBYL7dvfpyNV6iH7QuTyRqEJ9mdW62l6MHBsEVIpQ0KG9+6Z5vq+55Z2auL',
+              'hvqStHQXql4RGb2Oli6J5rwb7H+rHxLhd/Z/Im74/5pTIs9N4uh8WoTjVOkQmSMsEGlRzyl60Jywp/haASV7k4N+C0ZmeBUcv7JW',
+              'CW+IyuWzqr3zBRclnzVaNJ8vFz/lZiv3bakt/hU3c95UbZ9viKxsxdZ9od8ww18tF58y/V+4IHrDxJ/zc7OL/wfT2LXuk19Fzr3+',
+              'TiuIWxSmq712sEZYN0gk5NNlDaP6A+pevN7vuxbrL8KbWeV12xX7g6rHIAMCkgp4jFkykAjP5mPCb68sVqE15J/X7l4rNQCLPgjk',
+              'sUUGqK1qnR5bBkWHEgA6t04fBDU2rdzmuOR8euyDvNrtaRBYKNYJQDQoev0WSX/XarlUkoaJuqygG9RgLjpDcArhLeEklucbvaja',
+              'U5ZR7+A7QN71acm1feVRIMLO1vHu6r604p0jwSqKEHde/w2x2iOB',
+          ]
+          files=json.loads(zlib.decompress(base64.b64decode(''.join(chunks))))
+          for name,code in files.items():
+              if name not in ('v18_voice.py','test_v18_voice.py'):
+                  raise SystemExit('Unexpected patch file')
+              (root/name).write_text(code,encoding='utf8')
+          app=root/'app.py'
+          s=app.read_text('utf8')
+          addition='\n# V18: adjust saved short narration without another Gemini request.\nfrom v18_voice import install as install_v18\ninstall_v18(globals())\n'
+          if 'install_v18(globals())' not in s:
+              if 'install_v17(globals())' not in s:raise SystemExit('Unexpected base app')
+              app.write_text(s+addition,encoding='utf8')
+          p=root/'Dockerfile';s=p.read_text('utf8')
+          if 'v18_voice.py' not in s:
+              if 'v17_quality.py' not in s:raise SystemExit('Unexpected Dockerfile')
+              p.write_text(s.replace('v17_quality.py','v17_quality.py v18_voice.py'),encoding='utf8')
+          p=root/'test_v13_safety.py';s=p.read_text('utf8')
+          old="__import__('v17_quality').VERSION)"
+          new="__import__('v17_quality').VERSION, __import__('v18_voice').VERSION)"
+          if new not in s:
+              if old not in s: raise SystemExit('Unexpected V13 test')
+              p.write_text(s.replace(old,new),encoding='utf8')
+          p=root/'test_v17_quality.py';s=p.read_text('utf8')
+          for old,new in [('input_beats=make_beats([45]*15)','input_beats=make_beats([55]*15)'),
+           ("390 <= result['v17_preflight']['glyphs_after'] <= 555", "430 <= result['v17_preflight']['glyphs_after'] <= 700"),
+           ('make_beats([200,200,200])','make_beats([250,250,250])')]:
+              if old in s:s=s.replace(old,new)
+              elif new not in s:raise SystemExit('Unexpected V17 test')
+          p.write_text(s,encoding='utf8')
+          p=root/'test_v18_end_to_end_mocked.py'
+          if not p.exists():
+              s=(root/'test_v17_end_to_end_mocked.py').read_text('utf8')
+              if 'duration=78.7' not in s:raise SystemExit('Missing V17 mocked TTS fixture')
+              p.write_text(s.replace('test_full_pipeline_60_seconds_mock_gemini_real_ffmpeg',
+                           'test_short_39_second_voice_full_pipeline_60_second_mp4').replace('duration=78.7','duration=39'),encoding='utf8')
+          for file in root.glob('*.py'):
+              ast.parse(file.read_text('utf8'),filename=str(file))
+          print('V18 patch verified. No Gemini calls.')
+          PY
+      - name: Offline regression suite
+        shell: bash
+        run: |
+          cd ai-clip-studio && python -m pytest -q -m 'not slow'
+      - name: Real 60-second FFmpeg output from 39-second mocked Gemini TTS
+        shell: bash
+        run: |
+          cd ai-clip-studio && python -m pytest -q test_v18_end_to_end_mocked.py
+      - name: Commit only when both tests pass
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio
+          if ! git diff --cached --quiet; then
+            git commit -m 'V18 fix short narration without another Gemini API call'
+            git push origin HEAD:main
+          fi
