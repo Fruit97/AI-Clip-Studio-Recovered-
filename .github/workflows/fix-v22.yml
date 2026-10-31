@@ -1,0 +1,161 @@
+name: AI Clip Studio V22 Verified Continuous Storyflow
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v22.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 26
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies without calling Gemini
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Apply V22 patch to source (staging only)
+        shell: bash
+        run: |
+          python - <<'PY_V22'
+          from pathlib import Path
+          import zlib,base64,json,ast
+          root=Path('ai-clip-studio')
+          if not (root/'v21_storyflow.py').is_file():
+              raise SystemExit('V21 source missing. Refusing patch')
+          chunks=[
+              'eNrNW22P3MaR/isdGQHJXQ41MyutNyNROMWWDwsYsiDr9GV2QHDInh1KHJJmk/uSxQKRY5zkw3044GwkSgDjYsEQEMFArOTudv/N/pSrqu7m23',
+              'BXdhAEt4JWM+zuYnW9PVXVrZNrB+OxJwKecCc7vjZh1/boz+PxeMKKnPsFE8dJseRFFLDtgeBBmoQs8/MiKqI0EcwXLE04K/yn/BbLcr6Io/1l',
+              'wfhBFPIk4CzwMz+IimNnL9lL7vMDnrOcD0rBmUjLHCYscn/FgUjOsjKO2SJNC38fH6cr5rODSJR+HB+zMhFllqV5wUN6GdB7tIwEW6VhGXO2gk',
+              'eCJSn7Z76KkojdfbAL7/ms5KIQ+Gq5rYSoet6iLMqcex6LVkiS+UkCb6UN7SXq2TyCzRbV15VfLNX6DD7G0VwvfkAj6kvOq4+inGd5GnAhcOuP',
+              '7z38dPeT+64B8h6AEIsoKdNSDHAvYuAn4aAS3mA8HG8PRsPB1sjApXtJEPtCsF0QwWIRBRFPio+kmMyHJVBa8Xt5nubWZC9h8BPyBewRpFB4ni',
+              'l4vLBZlIT8yGYgaAGr9ET8wXGHhl363RgpM56bllOR0qslT/iW/TwtM68yEE8s00KY9NsGY0iPjm2lZi8scxKwfrfUyEM+L6M4BLH5MSMrZPO0',
+              'TEI/j0CdJG0gzfwYJoTHMC0sAzAAIk0WhaQORiMn5AVoSzLAwgitT0iqJGAQQJGy2+42UxbsJ358LMB+alO+JakVS7T5LI4KBsMbYBgbYIcJPw',
+              'RTXvHcl2w67AM/WEq7Z7sfCnYYFUvilVhwJK2P/Ai25S84O1zyRG2wenVAZseCdJXFwP6EPeU8Y+gixzVbwDB89gvuNOWmWPX393noTsMoKExh',
+              'ge/kDLcqeZjJSdFCzYMXw984Ng1k2otCg6bWq+S0pnHkHPxED8jHQVkIdzp0FPUiP27Mz9za6J28TMypsVisMr5v2MYgSUURRgl+XIJ6vDlsn+',
+              'f4NTJsUeQmadWya3L4YwwOFoa9dw3sFBTsGvuwUxSjPXS2xhYsXKaHUbJI964BIZ+ow3wjgViCn41Zhx7wkJZFk88P7z2+/y8ffwwshDzPmyMP',
+              'dh/cs9G9cMXW9tCqSYFUM0eKJ0hDzn7msuGk/abchwjCmg5qGtICpLGicjGqBfiuRRkbDfKokwU6Auol584CfDMqwB3zuZEVwkOSE3O6txc6s0',
+              '2QQuZI7q0OD4W7iFO/MImWQ+5qjiyrPQn2MmK3WQF/O846cG6S1RQDVPt0MJrdcUdOd6PaLBw/y3gSmoWiz48CnhXM/ORT2r3dFIXdEPMjKeF7',
+              'R1kEDm4/9uOyHdDw5z1wOHIXWHWg/E6FUUAXDDNsI0wZuSuEywjAI3zig7ghJvvJPoQAPwfnBBd21uxbOZCt/MJdGJFIY/C50DuJTg3pWJFNTs',
+              'KTEqNAwU3lLsoRrprS2IZWiJgaogAfN2YW22QAWaYzHNkr/8gcOrZZzQFxwozB2hprw2mpEYa0U89c+fHnwxuh8XOiaEssc+Q/Xo4gY6LG7MIa',
+              'jBSZjq/rEO/tx8fZEoK63oWaF/PEBMMENZq5sbcnNsHbpBsLy2pARBb7iTmHPAIQ4SCNGsa1Bg02U8gBDh2mh8K9D5lFGy/uxnEagGQp5ygTiO',
+              'pg9GWGSYFKJ8gwALggbsIgZCA2qubQz0NYE9eg8Ql8AQuFOA/ZCX5UCUtITFBIh/gM1h8sQbN+Rc5hj5Y8ykHJQZyKKNmX5LIlhPRAwQ0kC4BV',
+              'Jbh3xgB2boAX8aMCoYPAR7A5P0YQQriAaB8tInwt31/BOyS5DYQT8Amm4Ab9a8Nhu4UGDaDHKToAfR8Ab7HgOdo6vT7FHAuF2IMZKjk5GI88Ua',
+              'T5MZjWISZx8KDCC3wBqQwptZUGGDqc9Ia2i/MvLs7+eHH+An+f/ffF2R8uzl5dnP354vzzi7NvL85g9A09+d+Ls+8vzn99cfYnmgZDzy/Ovrk4',
+              'e3tx9gy/nv+7joTAijIFhGK0hoYnaSMBxp1smfuCe+qRMrc24zVJtFw10/qZi99ovjWRu6rDD4RrpfSKDRlhMBkMllJEmtc4TZ+WmXtCHjA10B',
+              'GtiehA8qmcm+YQqwG4BaWzKl96yo/d2F/NQ1D5ZN3hNeKDZ4Pi3ZPTOuwQfUWzGWogkglnnxc14NtN7hrhQ5OdwpqZizFDP6H18BTg1rI7YcnS',
+              'GUEOG3EHznA40iFClHHhTluhkaRsm1IrvtLO3LLaEfNXUabUp1XUjJ4J5yHITfKhKQyaX/02RssFYLTOGG1Z6W7pRGKBSS035QSt+74MO7KNHl',
+              'vuGjuN4tCfybRfX5x9Rxb9WxyFafjwDU1+SzPB9v/YBPwoFG4cicJEKHIw8QV7EOYUFYbykHpESyE9GoZlzTZp9EjC0xHKsZ6Zc4lfZFuGPZ1Z',
+              'LYVX0c6dSsOdHs1qMsAMCo8+y+FZE4gfStrSpAGEIQxQbMU1d3ep1sA8AGQIzyAnQMCWwQ4eAcRLNmuKENLCKASSojKZlmlXzE66qdw6mN6Cd7',
+              'gdO731EzyB6EKS4E6PannU2IBS6SF0pAm5LnpQmxzUboWnwzw5l+TvSPNXvwjf3GHmPXYXBZ2rkC+oJCj8Y5SMALZkzQHrdHmCjNlg+Fhpq7ql',
+              'bEqb0Irnq6hA+8BYgtlHF4pbEcFubWET5wOmUbbi7NgmTwaigIxkx+pK0qftisKWMWI97/TZHVAYZEAYPCYqn+Nr01r8DvzNkcMHN+640nn7st',
+              'HKonROavp2i4gtrE6kSIvGst5Uvj86rL8d4sV/kZ9/U/v/2dcUIyAuvKAwASD4kj78QB8gHPxF4yM8+X0fer4kUl/qiPMFUXtLX7+lD68bUQle',
+              '/T27OH9G37/U74ap/0bDrwl0v6bPEoxfIk/yKwyd/waf4PPfUrSDD19ptH5NZL8jsq+bMcy3PRuyJQBNMqlamk1sO5qA4Q9n9uBoOmp5Xs5XPs',
+              'TkZF+p9ZYySb9w/VsquBfuZbH+cBnFvKZxBy3k5lq84BlxtuPY1cx1mxzergYHuOS2MxpPaG31vGMdBHfa0k4MxbgMSZMcSy+z2ox9w7IN7WbV',
+              'KFDHgR5bkltt0dLCIFKBn0lKdezXj2x8NDUSP1dvm/W+oYDAIpe35toV2kykUmWMs7GB5amU2qsbWcbkUV7y024o1dvedHGPlR7V11rQ9L0BCT',
+              'Kn8DelLVS5mz+HSqRcYeysZNgALqkJa9BJ/e6gBhuW1pe9Xobg3UT1mXbQysW/0Fj/FU2WXytfemm06yvJYqM+0l0/U47YMhu8smv2QZoInh/A',
+              'yAEHiF1EBasUhwVHCIlElATYgtQtU91W3ZhzkBbfYI8efVrVQg/5Cmvqw2WKndQoHFBlUJU8AiQGKJNjayyB4jrKMlAZO4SUkyoEgXaPT2CSJF',
+              'gCe3t7hmDUy4ojiLvAg2rNwpvZZyWwA0kD1FdUkQgRzWOq6gYwp4QCTwR5lBU9BQxlhzJXUo5HRq+SceQHkp31UmbSkT81SvMUfDZsJaoe2RF2',
+              'DMy6NGg3TKmGc6cIbSOAQV0hzyUjtQtRlnb9feemRPi5ztDEbL2Kmc5upYuF4IU7dDopEA8oNZCv7YQ0tbxCOUnDlv9swhrLUnTB43jQyPhbfT',
+              'vKCepCXVHp5gTSMnVe3l49z7n/tJFfytZPD2JirQk1+2Qt7NbSvu2OezC932srL/ya8AhQ7EvyTumjFfquIS4i5Ve0RD553sHOHkhG5/6OJsio',
+              '8KqFmIraa43WGpvlzPPnhJudWPI7IvJK4TLOhyzhr8xY37xKK97QyjMC42dVhCGir+j1b2knV9XWNPpNg3WdaCjiP9BOPtd7AIbeYgMMO/Ggtm',
+              '5u+qGsh8G3II53nBnsNYhLSlj9gtLUIBVQKSzosww2T9K506X5CUQLmrJRJr7s9/hAb4N8x8aRRHbKcU6FIEzGLF0Jd6jKAw7YgNM55GiEAe1E',
+              'ZIROlmYmzbX63Ho62b45s5rV7lRFoJlL/7aHZDDD1hwznCcppCDzFtZ24kOHsMJzpD2ddyG+je/9gUYTWgLOENYQqRNVNE2ARitlAYzHwqTxnO',
+              'qU0w7xfiut/LlNk1ZRL7lJk552mMT0ogJF4PPEeAqhxJPSndRRwoYaF2ErbA4pVTbynGoWP/LxnAUmqknTyRbs1A9DOmfxY2+f8MnTx4bGZNgg',
+              'E/IgEpRoGUmKVXFG2FcmqtJmvxzkaRzfQrOvwBlgGUAHj7YyzoNldRhqnF6ZE0BlV+BBTVI1XRHJVAXrPQYB7d7/9NHdjz++96FhKWBrd/dGox',
+              '/b7dML3vc+K/0YeKPh0fuqrZlD7QvZnSePLNzuUVtnVpLmKyDyK04Tq29ew16quTm2CHKaKD/SoUYcJbwzUQRLjme81OkTqByAAFCXYqA+82wy',
+              'Jg+T7G7+RACO425nZ935a2cEVx119q7tispty61muyMmU58PKrzt24JqsK3L/dLFrVoXBend/eDR7uN7ZFPahi5LRi+XSjOb6lG5u2YC9ba7mu',
+              'zt2l6Wg/gHrcOBRrInm1Kq1+cnx5eedtLE7nlZLYe27f1E5tYF1ciufhSR/uD6I3vdxII2wx6nca/yoo4zQhAa2U+iUPEp32Qv0hgm2fLl3R1c',
+              'Dgy6HCzDKO3ynGaFstqOVteslWAkSgoTl8igCLF/v1ga9tYQe3DbQ5ryN1mACohPRJp08mN0chcve5hy99Z1Q3ubJy8krLIbxnrviob4ERQswr',
+              'R6ElupknfHl25JuE4JC2TYL7U2O11KLEUcgmKBR0tqxLDeIQ39Y7b3TXMH6PAoJ8NyDnOo8DzsJJj4xAnLVaa551AE5KB0EUSR+5EfCw7YXRaL',
+              'wY7R4ydtePi7Wt9PM8I6qHU8wu2Fq0RMu9A8c7ElUg/fffDAU9eAYEx9qoch/TRmqKOCO5gE1b0Vj5SFISQBxKyJ/lO9jLR93c+i67D0Ol6I0M',
+              'KVCcUiraP8iQFlucxlFBM2JJGYr8gX1cfqsqnTEilkP97cD54WOfxS4waUwl6Z6AaxV3WqPVW1GhPsF7fIgKK9ohCeakx48zKEPWiCdFzak5BB',
+              '3nTNZtcKjv3o3otrd4MC8hi28KMYrI7sCSNdmkxQl/Jij2B+88YRVCf6XpCwKXI8Ho+AAlhqjHeOngBsCyxudkR9DKxbEj2XvdSj7BjZrL7252',
+              'DVoNqLHBg3zt/Ryk08G4/CzhH8SSP1nxi6QfyCSrfqkPUN1XBnVP+9pVLvP6kKpAavalb9larAqyto2XR+Q/N/IGr/QQRfEk1ZAleVMvWHVSPt',
+              'la4+/6LXPlcFK3L1B2MTw1XSzNirlqZBbL5o97pfaHo170ajVwlisjunX5OpwEOM+gXtBq06LYrC6Wgysza27WaFsja6uX1aK4fsEC1JOk4dvb',
+              'chdSBLg9Ss8JQpedKUeFjBgEySplLHI3jx0ND3SSQqQJGGm8IBW5drQ1WeAaM6vE/kpyH8GKftCKgJjGoC24rAaHwJBcXCe+QHeMwksMDBOp7h',
+              'jQeo27dF41pofVcN7120nITo+AIKIpWZTYczdezFBo0nqvBkt9lO45oZOILTSJx2bOC4GZwVYSz8cD4g/4jcly4rIdm6R+y6O6011ZR25eu6w4',
+              '525X0LL8hTIaSqyU89IOCpSxpe48TT02eF/691PKp0TNcWZaRyqMMmTJR6T+POmlyljpbMACJyXkKSmuaevIji4QmldBJIOLximXOQue4vV7Jq',
+              'CWRhCLx9VW1JemK0sW2pvckHZrQ5suhhr6Tk7YO6qXtTC7+ll8hWb7O687f0/D6LHI8g4+wzyXecU5C1DsYj63Z9aUKvhLp/rSFzx/W7jzb9Jm',
+              'm6fEH0fZs6NHiPgm54kaFj6Ooqqar1PNkhER615LxW0+1dOvoHG20/hXFNAVdKEjt9JMaXkdhqkNhRJMY3+khsVa6jDKiFwtik/Zxw9HsCq3PC',
+              'qD8h7ElwPf9XCXhR8+iuZ1ET0rQj1JyvAZyaMrM72Abe4rTxTLmLs+YYN1qOMR3NWp1F16B0QLar5XHzt/W5c50mPCNEflk35jEFqB4+0z31l9',
+              'TClh/+hxY+p7wDkd3YUM2nULpb1ZM4US3WiXQ+A0An5iS9N5RXvK7ECGqWtcf4Rtsvw7X+4rTTRsQbrt0lakTihdIKQAUaP+FNY8pg1J2zZbyT',
+              'gyt6kD2I1K0UCZQQdVKzWGUe/u8E7auwsYi7+ul1ZQiNOjVYhW7zjvYB/OJ4ttK5sH2s71XH/sEiUne2G55kIGciD8auwO7faHt49IvhBG90uV',
+              'vDiY5T7ghddRBM8DVxND8ab99okxkgMvhQMNgGxgX8PxECqgKoF2MoCBa+KOSFG9qYNti1W+ewKxudC8tOwOesLKhosrE+VZ/Upe5fDNv20bzT',
+              'DZKv7lX/6NB3al8Z13TsUDf30b6vKvxpmwCzbSblYrLG+tKvq56Omk/7kEsh3lBlIhLG1UXldr4G+BWs4VdQ4RelVJ1cCdtllBYpKw1TLlPgnO',
+              'N/cyjxTnTHRv92PGkdHLxTlrUXrCKBaSy5gb3d3rQi5qq22LXT/wM0mnJD',
+          ]
+          data=json.loads(zlib.decompress(base64.b64decode(''.join(chunks))))
+          required={'v22_scene.py','test_v22_scene.py'}
+          if set(data)!=required:raise SystemExit('Unexpected V22 payload')
+          for name,content in data.items():
+              ast.parse(content,filename=name)
+              (root/name).write_text(content,encoding='utf-8')
+          app=root/'app.py'
+          code=app.read_text('utf-8')
+          required_marker='install_v21(globals())'
+          if required_marker not in code:raise SystemExit('V21 installation is missing')
+          addition='\n# V22: preserve continuous camera takes across synthetic partitions\nfrom v22_scene import install as install_v22\ninstall_v22(globals())\n'
+          if 'install_v22(globals())' not in code:
+              code+=addition
+              app.write_text(code,encoding='utf-8')
+          docker=root/'Dockerfile'
+          d=docker.read_text('utf-8')
+          if 'v22_scene.py' not in d:
+              if 'v21_storyflow.py' not in d:
+                  if 'v18_voice.py' not in d:raise SystemExit('Unexpected Dockerfile')
+                  d=d.replace('v18_voice.py','v18_voice.py v20_proxy.py v21_storyflow.py',1)
+              d=d.replace('v21_storyflow.py','v21_storyflow.py v22_scene.py',1)
+              docker.write_text(d,encoding='utf-8')
+          test=root/'test_v13_safety.py'
+          t=test.read_text('utf-8')
+          older="__import__('v21_storyflow').VERSION)"
+          newer="__import__('v21_storyflow').VERSION, __import__('v22_scene').VERSION)"
+          if newer not in t:
+              if older not in t:raise SystemExit('Unexpected app version test')
+              t=t.replace(older,newer,1)
+              test.write_text(t,encoding='utf-8')
+          for p in root.glob('*.py'):
+              ast.parse(p.read_text('utf-8'),filename=p.name)
+          print('V22 installed to Actions temporary checkout. Zero Gemini calls.')
+          PY_V22
+
+      - name: Test no-repeat, take merging, and safety regression
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q -m 'not slow'
+
+      - name: Verify real MP4 with 39-second mocked narration
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q 'test_v21_end_to_end_mocked.py::test_natural_speech_continuous_one_scene_per_sentence[39.0]'
+
+      - name: Verify real MP4 with 55-second mocked narration
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q 'test_v21_end_to_end_mocked.py::test_natural_speech_continuous_one_scene_per_sentence[55.0]'
+
+      - name: Commit only after every offline test passes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/v22_scene.py ai-clip-studio/test_v22_scene.py ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/test_v13_safety.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'V22 correct continuous shots and preflight voice footage capacity'
+            git push origin HEAD:main
+          fi
