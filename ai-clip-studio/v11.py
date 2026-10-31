@@ -295,7 +295,12 @@ def render_one(source,voice,dest,ass,segment,has_audio,keep_sound):
                '-x264-params','ref=1:bframes=0:rc-lookahead=0:sync-lookahead=0',
                '-r','30','-fps_mode','cfr','-pix_fmt','yuv420p','-g','30',
                '-c:a','aac','-b:a','112k','-ar','44100','-ac','2','-movflags','+faststart',str(dest)],timeout=200)
-    if not media_ok(dest, .12):raise RuntimeError('ส่วนวิดีโอที่ตัดต่อไม่สมบูรณ์')
+    # Accept valid short video segments.
+    expected_min = min(.12, max(.067, float(duration) * .70))
+    if not media_ok(dest, expected_min):
+        raise RuntimeError(
+            f'ส่วนวิดีโอที่ตัดต่อไม่สมบูรณ์: '
+            f'{float(duration):.3f} วินาที')
 
 
 def render_timeline(ns,jid,source,voice,folder,beats,source_duration,source_audio,voice_duration,opts,shots):
@@ -308,7 +313,7 @@ def render_timeline(ns,jid,source,voice,folder,beats,source_duration,source_audi
     outputs=[]
     for i,s in enumerate(cuts):
         output=folder/f'v11_part_{i:03}.mp4'
-        if not media_ok(output,.12):
+        if not media_ok(output, min(.12, max(.067, float(s['duration']) * .70))):
             tmp=folder/f'v11_part_{i:03}.tmp.mp4'
             ass=folder/f'v11_caption_{i:03}.ass'
             write_ass(s['caption'],s['duration'],ass)
