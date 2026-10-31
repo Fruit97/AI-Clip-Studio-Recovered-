@@ -895,3 +895,7 @@ install_v25(globals())
 # V26: allow independently verified multiple real shots per full sentence
 from v26_multishot import install as install_v26
 install_v26(globals())
+
+# V27: one source-grounded reanalysis if the first script does not match enough footage
+from v27_replan import install as install_v27
+install_v27(globals())
