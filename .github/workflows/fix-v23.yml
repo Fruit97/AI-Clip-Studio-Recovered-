@@ -1,0 +1,150 @@
+name: AI Clip Studio V23 - Safe 503 Script Recovery
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v23.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-then-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout actual project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg, Thai fonts and offline test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Stage V23 recovery and repair resume pipeline
+        shell: bash
+        run: |
+          python - <<'PY_V23'
+          from pathlib import Path
+          import zlib, base64, json, ast
+          root=Path('ai-clip-studio')
+          if not (root/'v22_scene.py').is_file():
+              raise SystemExit('V22 source absent; refusing to change unrelated project')
+          chunks=[
+              'eNqtWXtv29YV/yoX3h8kPUq27GzoGGir27pdhsAxbCdAYRnENXUlMRYfJS9ta4KBJRsQZ9t/Szc4BVa0QRBgRYClaTH52+ij7JxzLylSD9dxow',
+              'gKH+eeex6/87oeLh2vrbuJkMmgHg+WHLbUon8P1tYddhhlYVu0WSK86FgkA9ZJooB5UdjxkwCefyYCP/TZr1bXGZds9+OdO9t7LAr7g3orbIVb',
+              'EUO+vkhZJ0rYrbXfMPOLLJLcshkPDv1uFmUpk34gokymNguFPImSIz/s2gzo9/Z262xHSO6HQNUTrfBBo8G8nvCO4sgP5Uoi0iwQLOayx3jYhv',
+              'UgI2yZxf2It1PGWRpliSfYiS97fkjCDEBQKYJYpiii0jUkrVy3k8ksEa7L/CCOEgk8QxBW+lGYtkL9DHSX4lQe82TyDDVAfR9s7uzeubfFmswA',
+              'm9ZSL/FjWQPj1LQda7kda2ura7+uNVZr6w2jFbof39/Z2dzac/9w7yNYXNqi/rG6fsATE3m6XpYkIpTuw+jQsFlbdHjWl82tKBQW8FEOcD/a2N',
+              '1EIXpSxqmzstIVoUhAj2PR52E3411R70ZRty947Kd1LwpWjhuHYOeVIGqLfrqCIn2yeXfj813gYt6qr9qssVZftVDHFujRYX7qKu1cj/f7ZiBk',
+              'L2rbLEv6ltMKGXzA1lkSMjOViX5t1bM4FolpsSbItn1vd89Aryny/IPkyKWexn1fmsbvQMuGtb96UE8lT2SKnjTLelrvwkOEbcXBcLRNBBk4lI',
+              'ZV0g51cpHO1X5T4WHGiTj2AbI28/o+LLJZSXGbHYkB/JzwpJvaVYmmP8s2S/tCxE1ETp0u0Zl9Pkib2vIQDZH0OwO1tfKwNq1C7Q6BGWONiVNQ',
+              '1PMl+/3e3jYFYyLgiQ67Y78tohXlLjalNoUp8twI1WIIqRjgrkKGWPkp80SCQXgb3vJ2Ea+MJ4Itg5TLLOUdwWRE2/KB4sgzGQUAOjTmgB0Kj2',
+              'fA9jPCHQv8bk+yHj8WgPYg7gsJyYRDbIPxBD8EikR8kYkUBZyoXCCLUkqTraoHJz0fFuwlmXAmZgfjOFUnaETmTjQX+3B5WXnRmjAQp54A8+1k',
+              'Iaq/mSRgWJ7i46ld/A467qoAwdRm6MS5sX2HmWBly1CrQgIvcLWcWQQl3E/FzG65OX7bZH0RmgpFC5dXNDDno3RGOIeNRy/Go/+OR8/hm/twPP',
+              'p2PHozHj0Zj/5Cv9+MRz/S9dvx6PF49JqefD8ePRpf/gl/Rz+MRxfjSyD4ihnzt+4Y5nj0ktY+oVUviOe3tPw/eHv5lHg+IVn+Rd839BCefEc7',
+              'PmPD3Ca/ZI0zRiK9mJBdPsIt8PqVtUgOo6ywFv+S9kTxvyYGfx+PviQ2F+PRU6J8QwTEHtc+zve8QErU6YLk/XF8eU48lULA9rwsFG3xCq8v/0',
+              'xLnpDGF/SFtU+vEPoRyT0aj/6hLQ/WaC3Rrm9LjL5ECVCg85zsnFY9m8iHwr3VLpgRsbXE6BVY+385q+e09Q/E7Xu6/nfuL0TCYqFR3W+Iy3m+',
+              '5Ve05UVuYEID/r6hV4/J0y9R3LI30Frf5az+WQKK0rkA62u6viSy54RI2PFvJPoL8urX9OQVUeKTOZJbqhGCQK2+o+iDzNSBBkTqWNzXaDywZv',
+              'KRAmmTNeblkCL5YwrG7IA1YE5cz2a6/FNmYurt7HKW0EXHml2u890m/QcN0IIdYp6mU8UXi5mZsy36hRDKN+TBsMhMqGNa7wqozy60mu7O5t7O',
+              '5+6drd29jbt3Nz8xyhlMZW51n6dv92EahWDpMN03gAvdGgdTNHESeSJNNZm+QypFh5KdJBy6kjatv05JKImFyysm1p2lDaUQtM2NO2W6h34b5C',
+              'm3fGQFawYCSHi151EpJYBxYAK5zdY+sBclVp3U81T0nIq7WclzGD4XGC8Y6hcUIBeWyv2v2ZC0cbqYUF/pXI6hhQmDUX48z3NckcAnEcmG2jhn',
+              'K0OyzplhTTt4Yd9VVamCgHduxSpdVfnGKqNCQ0UZNU08F2cMCB0/PNLMI5ggyq6V0ZEIpx2bgmOBhfUObYl7za0nTDp+iC3WFNuKHNDVgSQkYq',
+              'FmNXBA8nIkTEiKoAEKfT15OTdykRKbsQnZxva2q2cjequvJwSwsUEdvhR1coYL4HQDfurmwxqsakA5x9ylG2Trp5br/os65FwitebDySJKQCsw',
+              'B63AdLXih50ox6VKW53InM1EbFi1tQEjXQpJ0nBy1aZAZyipUBQXh7KSfLAGRZtegLprBXITAOW0CaZXHXLvKOp03BTGTBh1YEXfT+VCciUVjO',
+              'VA+Cnvp2I+gaS9ryAoZnkXBwRXDwiL1gQ8zHjfnczxrprjF1iCt9s+ViBY0qUURh11CsZ008wjbDpstbTqrBUu2WxJwvTgTh9tUNWWgxjKrp7d',
+              'd30cP7Z4AIMP90Qx08cDZFDcFoyw64cbhNL95o0nbKVJbb3+Qa3T52lvZhzNCydpoU8NUoJNFHqiwCSZorl/cJudcF+qK0pqMHbRuQU8mcBZz1',
+              'TmMuVFLGllbBOvOuaAsG02SgkGahGCjt5bzWbDmTdKzBkaejDkwb7g7/acZD80PHjht0Fp8OA+3GrVnaER46hPD/Hww3CM6Mg4OziDr2LTjWQT',
+              'nFBfVDC0ojbWTVsdNdj3baOdBcGgBjnUsIcG5T1neHZmq1GcDKjVtytVog/4bnO2fOpUTJub6tTSykEvBIMyCrdf1u2AzqbKFlyjJ8pjzf1biq',
+              'Dqtua+2bDX7FvWQQUJCABx2oNRGgZml3ekSFzZS4TQQUG28AB2iQ6qWaTkQLkhLG7f2Pd0oqDCqk5MUrPMxQ649HpN470PK5VW8gaoUXiZB5Oq',
+              '38seXq962G6skR8/1OoHPDmqA8gh60BT/kdhGiJJDHt/sVUhSYNV6fCUenMBYhuWfZUbVmFBFqcScnKwiLToBsmuL/UIO/qrnp4qc7uaiV4WTR',
+              '8Z/hH5SvWNzwwLZ5wCrGHkFodArjoacjtRAs9DBLIJOk+j82pQLsAi8LkWwt4rDnRSCB29X4f7fdMIIDCpYyciYyozKC2b+41qUIOd8v4Aa60L',
+              'JopkDyJbtbRFCONhnu5yocnFw6J9U4v37oUI6i4QepRtAB2AiE1U0zqYDv3CKzfwzA0rxDUzBfAwpqera/t1Ysif5dmf9q4+zXf9FA/toamLsM',
+              'kGjTFDyygR7dkcDfsIugCDNqc6FJP63Jmnlg2tbC47jgyOqW86odMJLWteaP2MHuD9tABQ1x1s+s4m0kX9dmUGWp4eu7Gw9WWzOr+Y84IVXzWH',
+              'Z7OuUizw7xAzIkDtHU74OjlmijnIKcln59O3U2kRRKk1sBkNGg786A0QoaXjEPXwF2wH86Mn8O9cTLfxKg4AiVENKwlLZXaI7V3+dzI8SNYmV3',
+              '5TvKLE7+JIeFWHpCirw+gV5EULpBDj5FsghCpB4zrkB4LVhHNljjQNCIMaP/QMnWCNIgD1ktmB9irRclkW1uK1vL2Cpr+42l89gG+zWQhTWY77',
+              'zZ7Q4GkMilwhvdb8OTkIU1NJo6HbM9229Tk9zyfwHP7FWZmaQQA1sfCkhlGj0dQJSr2OkvTIj00DXhjVstNaQiHFqfCgGicoaXYY+NKsuMVuLW',
+              'FF0Xugwupvpybwy/EKbJfO/g/u2CEV',
+          ]
+          payload=json.loads(zlib.decompress(base64.b64decode(''.join(chunks))))
+          if set(payload)!={'v23_retry.py','test_v23_retry.py'}:
+              raise SystemExit('Unexpected V23 payload files')
+          for filename, contents in payload.items():
+              ast.parse(contents,filename=filename)
+              (root/filename).write_text(contents,encoding='utf-8')
+          app=root/'app.py'
+          code=app.read_text('utf-8')
+          if 'install_v22(globals())' not in code:
+              raise SystemExit('V22 app installation missing; no changes committed')
+          if 'install_v23(globals())' not in code:
+              code+='\n# V23: bounded retry for explicit HTTP 503 on SCRIPT only\nfrom v23_retry import install as install_v23\ninstall_v23(globals())\n'
+              app.write_text(code,'utf-8')
+          v11=root/'v11.py'
+          t=v11.read_text('utf-8')
+          older="ns['executor'].submit(pipeline,jid,args['source'],'',api_key.strip(),args['opts'])"
+          newer="ns['executor'].submit(ns['process'],jid,args['source'],'',api_key.strip(),args['opts'])"
+          if newer not in t:
+              if older not in t:
+                  raise SystemExit('Unknown V11 resume implementation; refusing blind patch')
+              t=t.replace(older,newer,1)
+              v11.write_text(t,'utf-8')
+          docker=root/'Dockerfile'
+          d=docker.read_text('utf-8')
+          if 'v23_retry.py' not in d:
+              if 'v22_scene.py' not in d:raise SystemExit('Unknown Dockerfile')
+              d=d.replace('v22_scene.py','v22_scene.py v23_retry.py',1)
+              docker.write_text(d,'utf-8')
+          safety_test=root/'test_v13_safety.py'
+          st=safety_test.read_text('utf-8')
+          old="__import__('v22_scene').VERSION)"
+          new="__import__('v22_scene').VERSION, __import__('v23_retry').VERSION)"
+          if new not in st:
+              if old not in st:raise SystemExit('Unknown app version test; refusing patch')
+              st=st.replace(old,new,1)
+              safety_test.write_text(st,'utf-8')
+          old_safety=root/'v13_safety.py'
+          s=old_safety.read_text('utf-8')
+          if "'max_retry_503':1" in s:
+              s=s.replace("'max_retry_503':1", "'max_retry_503':ns['app'].state.retry_503_max_attempts",1)
+              old_safety.write_text(s,'utf-8')
+          elif "'max_retry_503':ns['app'].state.retry_503_max_attempts" not in s:
+              raise SystemExit('Unknown V13 recovery info; refusing patch')
+          for file in root.glob('*.py'):
+              ast.parse(file.read_text('utf-8'),filename=str(file))
+          print('V23 staged safely. No Gemini requests or API keys used.')
+          PY_V23
+
+      - name: Test entire offline regression suite (no Gemini API calls)
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q -m 'not slow'
+
+      - name: Render simulated 39-second MP4 end-to-end
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q 'test_v21_end_to_end_mocked.py::test_natural_speech_continuous_one_scene_per_sentence[39.0]'
+
+      - name: Render simulated 55-second MP4 end-to-end
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q 'test_v21_end_to_end_mocked.py::test_natural_speech_continuous_one_scene_per_sentence[55.0]'
+
+      - name: Commit patch only when all offline tests pass
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/v23_retry.py ai-clip-studio/test_v23_retry.py ai-clip-studio/app.py ai-clip-studio/v11.py ai-clip-studio/Dockerfile ai-clip-studio/test_v13_safety.py ai-clip-studio/v13_safety.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'V23 fix transient Gemini 503 at SCRIPT, preserve V22 resume pipeline'
+            git push origin HEAD:main
+          fi
