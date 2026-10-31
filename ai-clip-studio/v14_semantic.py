@@ -67,10 +67,19 @@ def analyze_proxy(ns, client, proxy, key, source_duration, shots, length, tone):
         body={'contents':[{'parts':[{'text':make_prompt(timecodes,length,tone)},
             {'fileData':{'mimeType':'video/mp4','fileUri':remote['uri']}}]}],
             'generationConfig':{'responseMimeType':'application/json','temperature':0.10}}
+        if 'สาระน่ารู้' in str(tone):
+            body['tools'] = [{'googleSearch': {}}]
         response=ns['get_json'](client,'POST',f"{ns['BASE']}/models/{ns['MODEL']}:generateContent",key,json=body)
         raw='\n'.join(p.get('text','') for p in response.get('candidates',[{}])[0].get('content',{}).get('parts',[]))
         raw=re.sub(r'^```(?:json)?\s*|\s*```$','',raw.strip())
         analysis=json.loads(raw)
+        if 'สาระน่ารู้' in str(tone):
+            from v24_minute_knowledge import evidence_sources
+            sources=evidence_sources(response)
+            if not sources:
+                raise RuntimeError('โหมดสาระน่ารู้ไม่ได้รับแหล่งข้อมูลจาก Google Search ที่ตรวจสอบได้ จึงไม่สร้างข้อเท็จจริงเพิ่ม เพื่อไม่ให้ AI แต่งข้อมูลเอง')
+            analysis['knowledge_sources']=sources
+            analysis['_v24_knowledge_mode']=True
         if not isinstance(analysis,dict) or not isinstance(analysis.get('beats'),list) or not analysis['beats']:
             raise RuntimeError('AI ไม่พบฉากจริงที่สัมพันธ์กับเนื้อเรื่องในคลิปที่อัปโหลด')
         analysis['_v14_evidence_required']=True

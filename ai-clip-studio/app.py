@@ -594,7 +594,7 @@ def health():
 @app.post('/api/jobs')
 async def create_job(request: Request, video: UploadFile | None = File(None),
                      url: str = Form(''), api_key: str = Form(''),
-                     length: int = Form(30), voice: str = Form('female'),
+                     length: int = Form(60), voice: str = Form('female'),
                      aspect: str = Form('9:16'), tone: str = Form('กระชับ'),
                      captions: bool = Form(True), keep_sound: bool = Form(False),
                      rights: bool = Form(False), font_style: str = Form('minimal')):
@@ -607,7 +607,7 @@ async def create_job(request: Request, video: UploadFile | None = File(None),
         raise HTTPException(400, 'กรุณาใส่ Gemini API Key ที่ใช้งานได้')
     if (not video or not video.filename) == (not url):
         raise HTTPException(400, 'เลือกอัปโหลดไฟล์หรือวางลิงก์อย่างใดอย่างหนึ่ง')
-    if length not in (15, 30, 60) or aspect not in ('9:16', '16:9') or voice not in ('male','female') or font_style not in ('minimal','bold'):
+    if length not in (60, 90, 120) or aspect not in ('9:16', '16:9') or voice not in ('male','female') or font_style not in ('minimal','bold'):
         raise HTTPException(400, 'ค่าตั้งค่าไม่ถูกต้อง')
     if len(url) > 1200 or len(tone) > 40:
         raise HTTPException(400, 'ข้อมูลยาวเกินไป')
@@ -753,7 +753,7 @@ async def upload_chunk(uid: str, request: Request, token: str, offset: int):
 
 
 @app.post('/api/uploads/{uid}/complete')
-async def complete_upload(uid: str, token: str, api_key: str = Form(''), length: int = Form(30),
+async def complete_upload(uid: str, token: str, api_key: str = Form(''), length: int = Form(60),
                           voice: str = Form('female'), aspect: str = Form('9:16'),
                           tone: str = Form('กระชับ'), captions: bool = Form(True),
                           keep_sound: bool = Form(False), rights: bool = Form(False),
@@ -762,7 +762,7 @@ async def complete_upload(uid: str, token: str, api_key: str = Form(''), length:
         raise HTTPException(400, 'กรุณายืนยันสิทธิ์ใช้งานวิดีโอ')
     if len(api_key.strip()) < 12:
         raise HTTPException(400, 'กรุณาใส่ Gemini API Key ที่ใช้งานได้')
-    if length not in (15,30,60) or aspect not in ('9:16','16:9') or voice not in ('male','female') or font_style not in ('minimal','bold') or len(tone) > 40:
+    if length not in (60,90,120) or aspect not in ('9:16','16:9') or voice not in ('male','female') or font_style not in ('minimal','bold') or len(tone) > 40:
         raise HTTPException(400, 'การตั้งค่าไม่ถูกต้อง')
     with lock:
         item = uploads.get(uid)
@@ -883,3 +883,7 @@ install_v22(globals())
 # V23: bounded retry for explicit HTTP 503 on SCRIPT only
 from v23_retry import install as install_v23
 install_v23(globals())
+
+# V24: knowledge mode and minimum one minute for all modes
+from v24_minute_knowledge import install as install_v24
+install_v24(globals())

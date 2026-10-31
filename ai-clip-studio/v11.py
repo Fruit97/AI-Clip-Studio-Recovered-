@@ -435,6 +435,11 @@ def install(ns):
                 with httpx.Client(timeout=httpx.Timeout(540,connect=20,read=540,write=540,pool=20)) as client:
                     voiceduration=ns['tts'](client,analysis['script'],key,opts['voice'],wav)
             (folder/'script.txt').write_text(analysis.get('title','')+'\n\n'+analysis.get('summary','')+'\n\n'+analysis['script'],encoding='utf-8')
+            if voiceduration + 1e-3 < int(opts.get('length',60)):
+                raise RuntimeError(
+                    f'เสียงพากย์ธรรมชาติยาว {voiceduration:.2f} วินาที ต่ำกว่าเกณฑ์ {int(opts.get("length",60))} วินาที '
+                    'ระบบไม่ยืดเสียง ไม่ค้างภาพ และไม่ส่งออกวิดีโอที่สั้นกว่าที่เลือก กรุณาใช้วิดีโอที่มีประเด็นมากขึ้น'
+                )
             stage='MATCH';ns['notify'](jid,63,'จัดเรียงฉากให้ตรงกับประโยคพากย์')
             stage='RENDER'
             output=render_timeline(ns,jid,source,wav,folder,analysis['beats'],duration,source_audio,voiceduration,opts,shots)

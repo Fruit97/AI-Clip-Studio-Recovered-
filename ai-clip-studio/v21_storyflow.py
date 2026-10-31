@@ -261,7 +261,7 @@ def install(ns):
     v15.finalize_mp4_60 = finalize
     previous_timeline = v11.render_timeline
     def render_timeline(ns1,jid,source,voice,folder,beats,source_duration,source_audio,voice_duration,opts,shots):
-        if not _ACTIVE.get() or int(opts.get('length',30)) != 60:
+        if not _ACTIVE.get() or int(opts.get('length',60)) not in (60, 90, 120):
             return previous_timeline(ns1,jid,source,voice,folder,beats,source_duration,
                                      source_audio,voice_duration,opts,shots)
         folder=Path(folder)
@@ -274,10 +274,14 @@ def install(ns):
         silence=folder/'v21_silence.wav'
         if not silence.exists() or v11.duration_of(silence) < voice_duration + .1:
             write_silence(silence, voice_duration)
-        token=_RENDER.set({'voice':Path(voice),'silence':silence,'seconds':voice_duration})
+        context_voice=Path(voice)
+        token=_RENDER.set({'voice':context_voice,'silence':silence,'seconds':voice_duration})
         try:
             result = previous_timeline(ns1,jid,source,voice,folder,beats,source_duration,
                                        source_audio,voice_duration,opts,shots)
+            # V15 finalizes the 60s case; for longer targets we must mux once here.
+            if int(opts.get('length',60)) in (90, 120):
+                result = mux_continuous_voice(result, result, context_voice, voice_duration)
             (folder/'v21_success.marker').write_text(VERSION,encoding='utf-8')
             return result
         finally:
@@ -285,7 +289,7 @@ def install(ns):
     v11.render_timeline=render_timeline
     previous_process=ns['process']
     def process(jid,src_path,link,key,opts):
-        active=bool(opts.get('editorial_v21', True)) and int(opts.get('length',30))==60
+        active=bool(opts.get('editorial_v21', True)) and int(opts.get('length',60)) in (60, 90, 120)
         t=_ACTIVE.set(active)
         try:
             return previous_process(jid,src_path,link,key,opts)

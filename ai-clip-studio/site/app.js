@@ -40,6 +40,16 @@
     el('sourceModeNote').classList.toggle('warning-note',job.mode==='graphics');
     el('durationInfo').textContent='ความยาว '+(job.seconds||'-')+' วินาที';
     el('resultScript').textContent=job.script || '';
+    const verifiedSources=Array.isArray(job.knowledge_sources)?job.knowledge_sources:[];
+    const sourcesBox=el('knowledgeSources'),sourceList=el('knowledgeSourcesList');
+    sourceList.replaceChildren();
+    for(const src of verifiedSources){
+      if(typeof src?.url!=='string'||!src.url.startsWith('https://'))continue;
+      const li=document.createElement('li');const a=document.createElement('a');
+      a.href=src.url;a.target='_blank';a.rel='noopener noreferrer';
+      a.textContent=String(src.title||'แหล่งอ้างอิง');li.appendChild(a);sourceList.appendChild(li);
+    }
+    sourcesBox.hidden=sourceList.children.length===0;
     el('resultVideo').src=getFileUrl(currentJob,'video')+'&preview=true';
     el('downloadVideo').href=getFileUrl(currentJob,'video');
     el('downloadScript').href=getFileUrl(currentJob,'script');
