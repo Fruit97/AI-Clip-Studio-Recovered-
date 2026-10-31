@@ -174,7 +174,7 @@ def install(ns):
 
     def render_timeline(ns1,jid,source,voice,folder,beats,source_duration,
                         source_audio,voice_duration,opts,shots):
-        if v21._ACTIVE.get() and int(opts.get('length',30))==60 and not any('take_id' in s for s in shots):
+        if v21._ACTIVE.get() and int(opts.get('length',30)) in (60,90,120) and not any('take_id' in s for s in shots):
             import json
             proxy=Path(folder)/'analysis_proxy.mp4'
             if proxy.exists():

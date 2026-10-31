@@ -887,3 +887,7 @@ install_v23(globals())
 # V24: knowledge mode and minimum one minute for all modes
 from v24_minute_knowledge import install as install_v24
 install_v24(globals())
+
+# V25: adaptive evidence-grounded source shots before TTS
+from v25_adaptive import install as install_v25
+install_v25(globals())
