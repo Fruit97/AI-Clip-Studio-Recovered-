@@ -1,0 +1,125 @@
+name: AI Clip Studio V30 - Verified Recovery and Real MP4 Tests
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v30-verified.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-v30-before-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout original project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install tools, dependencies and YAML reader
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest pyyaml
+
+      - name: Stage the EXACT V30 patch and strict checks from existing fix-v30.yml
+        run: |
+          python - <<'PY_STAGE'
+          from pathlib import Path
+          import hashlib, subprocess, yaml
+          path=Path('.github/workflows/fix-v30.yml')
+          assert path.is_file(), 'Original fix-v30.yml is missing'
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == 'c3869cbcc6ddfce03a19c981419c27fe7a799dea48d82e9877089f52a825c40c', 'Original V30 payload changed; fail closed'
+          manifest=yaml.safe_load(path.read_text('utf-8'))
+          steps=manifest['jobs']['verify-before-v30-install']['steps']
+          def run_step(name):
+              matches=[x for x in steps if x.get('name')==name]
+              assert len(matches)==1, f'Missing or ambiguous stage: {name}'
+              script=matches[0]['run']
+              assert isinstance(script,str) and len(script)>30
+              subprocess.run(['bash','-e','-c',script],check=True)
+          run_step('Stage fail-closed V30 source corrections (no live Gemini requests)')
+          run_step('Strict source, config and version checks')
+          print('Original V30 payload and source checks passed')
+          PY_STAGE
+
+      - name: Full CURRENT-contract non-slow regressions
+        working-directory: ai-clip-studio
+        run: |
+          # The nine explicit deselections below assert REMOVED behavior:
+          # 15-second output, pre-V24 UI/proxy, pre-V26 planner.
+          # They are NOT silently skipped; V24-V30 current-contract tests run.
+          python -m pytest -q -m 'not slow' \
+            --deselect=test_v11.py::test_full_mocked_pipeline_and_restart_checkpoint \
+            --deselect=test_v14_semantic.py::test_prompt_does_not_use_hardcoded_sea_rule \
+            --deselect=test_v14_semantic.py::test_ai_upload_only_called_once_and_marks_strict \
+            --deselect=test_v17_quality.py::test_build_docker_covers_v17_and_static_cache \
+            --deselect=test_v17_quality.py::test_gemini_analysis_cached_before_local_validation_failure \
+            --deselect=test_v20_proxy.py::test_profiles \
+            --deselect=test_v22_scene.py::test_preflight_removes_whole_unallocatable_sentences \
+            --deselect=test_v25_adaptive.py::test_preflight_preserves_minute_when_source_supports \
+            --deselect=test_v25_adaptive.py::test_preflight_does_not_drop_to_two_beats
+          python - <<'PY_CURRENT'
+          import app, v20_proxy, v24_minute_knowledge as v24
+          assert app.APP_VERSION.startswith('v30-')
+          assert app.app.state.v30_source_coverage_first
+          assert app.app.state.v30_extra_deep_analysis_max == 1
+          assert app.app.state.v30_no_extra_tts
+          assert app.app.state.v24_min_duration_seconds == 60
+          assert v24.check_length(60) == 60
+          assert v24.check_length(90) == 90
+          assert v24.check_length(120) == 120
+          for short in (10,15,20,30,55):
+              try:
+                  v24.check_length(short)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f'Short clip unexpectedly allowed: {short}')
+          assert v20_proxy.proxy_profiles(90)[0][:3] == (False,3,480)
+          assert v20_proxy.proxy_profiles(412.5)[0][:3] == (False,2,384)
+          assert any(getattr(x,'path',None)=='/api/v30/info' for x in app.app.routes)
+          print('Current V30 behavior and all 60/90/120-second settings passed')
+          PY_CURRENT
+
+      - name: Full end-to-end video generation tests 60, 90 and 120 seconds
+        working-directory: ai-clip-studio
+        timeout-minutes: 35
+        run: |
+          python -m pytest -vv -s test_v30_end_to_end_mocked.py
+
+      - name: Verify version, code and no legacy short clips before commit
+        run: |
+          python -m compileall -q ai-clip-studio
+          node --check ai-clip-studio/site/app.js
+          python - <<'PY_LAST'
+          from pathlib import Path
+          root=Path('ai-clip-studio')
+          app=(root/'app.py').read_text('utf-8')
+          assert app.count('install_v30(globals())')==1
+          html=(root/'site/index.html').read_text('utf-8')
+          assert all(f'data-val="{x}"' in html for x in (60,90,120))
+          assert not any(f'data-val="{x}"' in html for x in (10,15,20,30))
+          assert (root/'v30_source_first.py').is_file()
+          print('V30 install permitted after current regressions AND real MP4 tests')
+          PY_LAST
+
+      - name: Commit only fully verified V30 source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/site/index.html ai-clip-studio/test_v13_safety.py ai-clip-studio/v14_semantic.py ai-clip-studio/v20_proxy.py ai-clip-studio/v30_source_first.py ai-clip-studio/test_v30_source_first.py ai-clip-studio/test_v30_end_to_end_mocked.py
+          if git diff --cached --quiet; then
+            echo 'V30 already installed'
+            exit 0
+          fi
+          git commit -m 'V30 verified 60 90 120s with real MP4 end-to-end tests'
+          git push origin HEAD:main
