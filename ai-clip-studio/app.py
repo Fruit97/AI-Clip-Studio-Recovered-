@@ -867,3 +867,7 @@ install_v17(globals())
 # V18: adjust saved short narration without another Gemini request.
 from v18_voice import install as install_v18
 install_v18(globals())
+
+# V20: resource-aware PROXY without extra Gemini calls
+from v20_proxy import install as install_v20
+install_v20(globals())
