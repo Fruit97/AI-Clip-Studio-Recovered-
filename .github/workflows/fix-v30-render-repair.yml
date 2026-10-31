@@ -1,0 +1,155 @@
+name: AI Clip Studio V30 - Repair Exact 30FPS and Resume Without Reencoding
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v30-render-repair.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-v30-before-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout original project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install tools, dependencies and YAML reader
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest pyyaml
+
+      - name: Stage the EXACT V30 patch and strict checks from existing fix-v30.yml
+        run: |
+          python - <<'PY_STAGE'
+          from pathlib import Path
+          import hashlib, subprocess, yaml
+          path=Path('.github/workflows/fix-v30.yml')
+          assert path.is_file(), 'Original fix-v30.yml is missing'
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == 'c3869cbcc6ddfce03a19c981419c27fe7a799dea48d82e9877089f52a825c40c', 'Original V30 payload changed; fail closed'
+          manifest=yaml.safe_load(path.read_text('utf-8'))
+          steps=manifest['jobs']['verify-before-v30-install']['steps']
+          def run_step(name):
+              matches=[x for x in steps if x.get('name')==name]
+              assert len(matches)==1, f'Missing or ambiguous stage: {name}'
+              script=matches[0]['run']
+              assert isinstance(script,str) and len(script)>30
+              subprocess.run(['bash','-e','-c',script],check=True)
+          run_step('Stage fail-closed V30 source corrections (no live Gemini requests)')
+          run_step('Strict source, config and version checks')
+          print('Original V30 payload and source checks passed')
+          PY_STAGE
+
+      - name: Patch exact frame count and idempotent resume after V30 installation
+        run: |
+          python - <<'PY_RENDER_PATCH'
+          from pathlib import Path
+          import base64,ast
+          root=Path('ai-clip-studio')
+          module=base64.b64decode('IiIiVjMwIGZyYW1lLWFjY3VyYXRlIGZpbmFsaXphdGlvbiBhbmQgaWRlbXBvdGVudCByZXN1bWUuCgpSZXBhaXJzIG9ubHkgc21hbGwgKDwwLjI1IHNlY29uZCkgZnJhbWUtY291bnQgZHJpZnQgYnkgaW50ZXJwb2xhdGluZyBmcmFtZXMKYmV0d2VlbiBzb3VyY2UgZnJhbWVzLiBOZXZlciBpbnZlbnQgb3IgcmVwZWF0IHNob3RzIGFuZCBuZXZlciByZXBlYXQgVFRTIGNhbGxzLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwppbXBvcnQganNvbgppbXBvcnQgbWF0aApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKaW1wb3J0IHN1YnByb2Nlc3MKClZFUlNJT04gPSAndjMwLXZlcmlmaWVkLXJlbmRlci1yZWxpYWJpbGl0eS0yMDI2LTEwLTMxJwpUQVJHRVRTID0gKDYwLCA5MCwgMTIwKQoKCmRlZiBtZWRpYV9pbmZvKHBhdGgpOgogICAgcT1zdWJwcm9jZXNzLnJ1bihbJ2ZmcHJvYmUnLCctdicsJ2Vycm9yJywnLXNlbGVjdF9zdHJlYW1zJywndjowJywKICAgICAgICAnLXNob3dfZW50cmllcycsJ3N0cmVhbT1uYl9mcmFtZXMsYXZnX2ZyYW1lX3JhdGU6Zm9ybWF0PWR1cmF0aW9uJywKICAgICAgICAnLW9mJywnanNvbicsc3RyKHBhdGgpXSxjYXB0dXJlX291dHB1dD1UcnVlLHRleHQ9VHJ1ZSx0aW1lb3V0PTQwKQogICAgaWYgcS5yZXR1cm5jb2RlIG9yIG5vdCBxLnN0ZG91dDoKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoJ+C4leC4o+C4p+C4iOC4guC5ieC4reC4oeC4ueC4peC5gOC4n+C4o+C4oSBNUDQg4LmE4Lih4LmI4Liq4Liz4LmA4Lij4LmH4LiIJykKICAgIGRvYz1qc29uLmxvYWRzKHEuc3Rkb3V0KQogICAgc3RyZWFtPWRvYy5nZXQoJ3N0cmVhbXMnKSBvciBbXQogICAgaWYgbGVuKHN0cmVhbSkhPTE6CiAgICAgICAgcmFpc2UgUnVudGltZUVycm9yKCfguYTguJ/guKXguYwgTVA0IOC5hOC4oeC5iOC4oeC4teC4oOC4suC4nuC4p+C4tOC4lOC4teC5guC4reC4l+C4teC5iOC4leC4o+C4p+C4iOC4quC4reC4muC5hOC4lOC5iScpCiAgICBmcmFtZT1pbnQoc3RyZWFtWzBdLmdldCgnbmJfZnJhbWVzJykgb3IgMCkKICAgIGR1cmF0aW9uPWZsb2F0KGRvYy5nZXQoJ2Zvcm1hdCcse30pLmdldCgnZHVyYXRpb24nKSBvciAwKQogICAgcmV0dXJuIGZyYW1lLCBzdHJlYW1bMF0uZ2V0KCdhdmdfZnJhbWVfcmF0ZScpLGR1cmF0aW9uCgoKZGVmIGV4YWN0X21lZGlhKHBhdGgsdGFyZ2V0KToKICAgIHBhdGg9UGF0aChwYXRoKQogICAgaWYgbm90IHBhdGguaXNfZmlsZSgpIG9yIHRhcmdldCBub3QgaW4gVEFSR0VUUzpyZXR1cm4gRmFsc2UKICAgIHRyeToKICAgICAgICBuLGZwcyxkdXJhdGlvbj1tZWRpYV9pbmZvKHBhdGgpCiAgICAgICAgaWYgbiE9dGFyZ2V0KjMwIG9yIGZwcyE9JzMwLzEnIG9yIGFicyhkdXJhdGlvbi10YXJnZXQpPi4wNToKICAgICAgICAgICAgcmV0dXJuIEZhbHNlCiAgICAgICAgcT1zdWJwcm9jZXNzLnJ1bihbJ2ZmcHJvYmUnLCctdicsJ2Vycm9yJywnLXNlbGVjdF9zdHJlYW1zJywnYTowJywKICAgICAgICAgICAgJy1zaG93X2VudHJpZXMnLCdzdHJlYW09Y29kZWNfdHlwZScsJy1vZicsJ2Nzdj1wPTAnLHN0cihwYXRoKV0sCiAgICAgICAgICAgIGNhcHR1cmVfb3V0cHV0PVRydWUsdGV4dD1UcnVlLHRpbWVvdXQ9MjApCiAgICAgICAgcmV0dXJuIHEucmV0dXJuY29kZT09MCBhbmQgJ2F1ZGlvJyBpbiBxLnN0ZG91dAogICAgZXhjZXB0IChPU0Vycm9yLFZhbHVlRXJyb3IsUnVudGltZUVycm9yLFR5cGVFcnJvcixzdWJwcm9jZXNzLlRpbWVvdXRFeHBpcmVkKToKICAgICAgICByZXR1cm4gRmFsc2UKCgpkZWYgZmluYWxpemVfZnJhbWVzKHNvdXJjZSx0YXJnZXQpOgogICAgc291cmNlPVBhdGgoc291cmNlKQogICAgZXhwZWN0ZWQ9dGFyZ2V0KjMwCiAgICBpZiBleGFjdF9tZWRpYShzb3VyY2UsdGFyZ2V0KTpyZXR1cm4gc291cmNlCiAgICBmcmFtZXMsZnBzLHNlY29uZHM9bWVkaWFfaW5mbyhzb3VyY2UpCiAgICBpZiB0YXJnZXQgbm90IGluIFRBUkdFVFMgb3IgZnBzIT0nMzAvMScgb3Igbm90IG1hdGguaXNmaW5pdGUoc2Vjb25kcyk6CiAgICAgICAgcmFpc2UgUnVudGltZUVycm9yKCfguKPguLnguJvguYHguJrguJrguKfguLTguJTguLXguYLguK3guKvguKPguLfguK3guITguKfguLLguKHguKLguLLguKfguYTguKHguYjguJXguKPguIfguIHguLHguJrguIfguLLguJnguJfguLXguYjguYDguKXguLfguK3guIEnKQogICAgZHJpZnQ9ZXhwZWN0ZWQtZnJhbWVzCiAgICBpZiBmcmFtZXM8PTAgb3IgYWJzKGRyaWZ0KT42IG9yIGFicyhzZWNvbmRzLXRhcmdldCk+LjMwOgogICAgICAgIHJhaXNlIFJ1bnRpbWVFcnJvcihmJ+C5gOC4n+C4o+C4oeC4p+C4tOC4lOC4teC5guC4rSB7ZnJhbWVzfS97ZXhwZWN0ZWR9IOC4nOC4tOC4lOC4m+C4geC4leC4tOC5gOC4geC4tOC4meC4geC4p+C5iOC4suC4iOC4sOC4i+C5iOC4reC4oeC5guC4lOC4ouC5hOC4oeC5iOC4p+C4meC4ieC4suC4gScpCiAgICB0ZW1wPXNvdXJjZS53aXRoX25hbWUoJ3YzMF9leGFjdF9mcmFtZXMudG1wLm1wNCcpCiAgICB0ZW1wLnVubGluayhtaXNzaW5nX29rPVRydWUpCiAgICAjIE1vdGlvbi1ibGVuZCBpbnRlcnBvbGF0aW9uIGNvdmVycyBvbmx5IHRpbnkgbmF0dXJhbCBmcmFtZS1yb3VuZGluZyBkcmlmdC4KICAgICMgVGhlICsyIGNvbXBlbnNhdGVzIGZvciBtaW50ZXJwb2xhdGUgbG9va2FoZWFkIGF0IEVPRiAodmFsaWRhdGVkIGJ5IGZmcHJvYmUpLgogICAgaWYgZHJpZnQ+MDoKICAgICAgICB2Zj0oZidzZXRwdHM9KFBUUy1TVEFSVFBUUykqe2V4cGVjdGVkKzJ9L3tmcmFtZXN9LCcKICAgICAgICAgICAgZidtaW50ZXJwb2xhdGU9ZnBzPTMwOm1pX21vZGU9YmxlbmQsdHJpbT1lbmRfZnJhbWU9e2V4cGVjdGVkfSwnCiAgICAgICAgICAgICdzZXRwdHM9Ti8oMzAqVEIpLGZwcz0zMCcpCiAgICBlbHNlOgogICAgICAgIHZmPWYndHJpbT1lbmRfZnJhbWU9e2V4cGVjdGVkfSxzZXRwdHM9Ti8oMzAqVEIpLGZwcz0zMCcKICAgIGZpbHRlcnM9KGYnWzA6dl17dmZ9W3ZdOycKICAgICAgICAgICAgIGYnWzA6YV1hcmVzYW1wbGU9YXN5bmM9MTpmaXJzdF9wdHM9MCwnCiAgICAgICAgICAgICBmJ2FwYWQ9d2hvbGVfZHVyPXt0YXJnZXR9LGF0cmltPWR1cmF0aW9uPXt0YXJnZXR9LGFzZXRwdHM9UFRTLVNUQVJUUFRTW2FdJykKICAgIGNtZD1bJ2ZmbXBlZycsJy1ub3N0ZGluJywnLWhpZGVfYmFubmVyJywnLWxvZ2xldmVsJywnZXJyb3InLCcteScsJy1pJyxzdHIoc291cmNlKSwKICAgICAgICAgJy1maWx0ZXJfY29tcGxleCcsZmlsdGVycywnLW1hcCcsJ1t2XScsJy1tYXAnLCdbYV0nLAogICAgICAgICAnLWM6dicsJ2xpYngyNjQnLCctcHJlc2V0JywndWx0cmFmYXN0JywnLWNyZicsJzIzJywnLXRocmVhZHMnLCcxJywKICAgICAgICAgJy1yJywnMzAnLCctZnBzX21vZGUnLCdjZnInLCctcGl4X2ZtdCcsJ3l1djQyMHAnLCctZycsJzMwJywKICAgICAgICAgJy1jOmEnLCdhYWMnLCctYjphJywnMTI4aycsJy1hcicsJzQ4MDAwJywnLWFjJywnMicsJy10JyxzdHIodGFyZ2V0KSwKICAgICAgICAgJy1tb3ZmbGFncycsJytmYXN0c3RhcnQnLHN0cih0ZW1wKV0KICAgIHRyeToKICAgICAgICBwPXN1YnByb2Nlc3MucnVuKGNtZCxjYXB0dXJlX291dHB1dD1UcnVlLHRleHQ9VHJ1ZSx0aW1lb3V0PTExNTApCiAgICAgICAgaWYgcC5yZXR1cm5jb2RlOgogICAgICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoJ+C4i+C5iOC4reC4oeC5gOC4n+C4o+C4oSBNUDQg4LmE4Lih4LmI4Liq4Liz4LmA4Lij4LmH4LiIOiAnK3Auc3RkZXJyWy01MDA6XSkKICAgICAgICBpZiBub3QgZXhhY3RfbWVkaWEodGVtcCx0YXJnZXQpOgogICAgICAgICAgICBmcmFtZXNfYWZ0ZXIsXyxfID0gbWVkaWFfaW5mbyh0ZW1wKQogICAgICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoZifguIvguYjguK3guKHguYDguJ/guKPguKHguYHguKXguYnguKfguYTguJTguYkge2ZyYW1lc19hZnRlcn0ve2V4cGVjdGVkfSDguYDguJ/guKPguKEnKQogICAgICAgIHRlbXAucmVwbGFjZShzb3VyY2UpCiAgICAgICAgcmV0dXJuIHNvdXJjZQogICAgZmluYWxseToKICAgICAgICB0ZW1wLnVubGluayhtaXNzaW5nX29rPVRydWUpCgoKZGVmIGluc3RhbGwobnMpOgogICAgaWYgbnMuZ2V0KCdfVjMwX1JFTkRFUl9SRUxJQUJJTElUWV9JTlNUQUxMRUQnKTpyZXR1cm4KICAgIGltcG9ydCB2MTEKICAgIHByZXZpb3VzX3JlbmRlcj12MTEucmVuZGVyX3RpbWVsaW5lCiAgICBkZWYgdmVyaWZpZWRfcmVuZGVyKG5zMSxqaWQsc291cmNlLHZvaWNlLGZvbGRlcixiZWF0cyxzb3VyY2VfZHVyYXRpb24sc291cmNlX2F1ZGlvLHZvaWNlX2R1cmF0aW9uLG9wdHMsc2hvdHMpOgogICAgICAgIHRhcmdldD1pbnQob3B0cy5nZXQoJ2xlbmd0aCcsNjApKQogICAgICAgIGZpbGU9UGF0aChmb2xkZXIpLydyZXN1bHQubXA0JwogICAgICAgICMgQSBjb21wbGV0ZWQgY2hlY2twb2ludCBtdXN0IE5FVkVSIGJlIHJlLW11eGVkLiBGb3IgZXhhbXBsZSBWMjEKICAgICAgICAjIHVzZWQgdG8gbWl4IG9sZCBuYXJyYXRpb24gYSBzZWNvbmQgdGltZSBvbiByZXN1bWUuCiAgICAgICAgaWYgKHRhcmdldCBpbiBUQVJHRVRTIGFuZCAoUGF0aChmb2xkZXIpLyd2MjFfc3VjY2Vzcy5tYXJrZXInKS5leGlzdHMoKQogICAgICAgICAgICAgICAgYW5kIGV4YWN0X21lZGlhKGZpbGUsdGFyZ2V0KSk6CiAgICAgICAgICAgIHJldHVybiBmaWxlCiAgICAgICAgcmVuZGVyZWQ9cHJldmlvdXNfcmVuZGVyKG5zMSxqaWQsc291cmNlLHZvaWNlLGZvbGRlcixiZWF0cyxzb3VyY2VfZHVyYXRpb24sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzb3VyY2VfYXVkaW8sdm9pY2VfZHVyYXRpb24sb3B0cyxzaG90cykKICAgICAgICBpZiB0YXJnZXQgaW4gVEFSR0VUUzoKICAgICAgICAgICAgcmV0dXJuIGZpbmFsaXplX2ZyYW1lcyhyZW5kZXJlZCx0YXJnZXQpCiAgICAgICAgcmV0dXJuIHJlbmRlcmVkCiAgICB2MTEucmVuZGVyX3RpbWVsaW5lPXZlcmlmaWVkX3JlbmRlcgogICAgbnNbJ19WMzBfUkVOREVSX1JFTElBQklMSVRZX0lOU1RBTExFRCddPVRydWUKICAgIG5zWydhcHAnXS5zdGF0ZS52MzBfcmVuZGVyX3JlbGlhYmlsaXR5PVRydWUKICAgIEBuc1snYXBwJ10uZ2V0KCcvYXBpL3YzMC9yZW5kZXItY2hlY2snKQogICAgZGVmIGluZm8oKToKICAgICAgICByZXR1cm4geyd2ZXJzaW9uJzpWRVJTSU9OLCdmcHMnOjMwLCdkdXJhdGlvbnMnOls2MCw5MCwxMjBdLAogICAgICAgICAgICAgICAgJ21heF9jb3JyZWN0ZWRfZnJhbWVzJzo2LCdpbnRlcnBvbGF0ZV9ub3RfbG9vcCc6VHJ1ZSwKICAgICAgICAgICAgICAgICdjb21wbGV0ZWRfam9iX3Jlc3VtZV91c2VzX3ZhbGlkX3ZpZGVvJzpUcnVlfQo=').decode('utf-8')
+          tests=base64.b64decode('IiIiQ3VycmVudC1jb250cmFjdCBjaGVja3M6IGV4YWN0IDMwIGZwcyBhbmQgbm8gcmVkdW5kYW50IHJlbmRlciBvbiByZXN1bWUuIiIiCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aApmcm9tIGZhc3RhcGkgaW1wb3J0IEZhc3RBUEkKaW1wb3J0IHYzMF9yZW5kZXJfcmVsaWFiaWxpdHkgYXMgcmVsaWFiaWxpdHkKCgpkZWYgdGVzdF9leGFjdF9tZWRpYV9yZWplY3RzX25vbmV4aXN0ZW50KHRtcF9wYXRoKToKICAgIGFzc2VydCBub3QgcmVsaWFiaWxpdHkuZXhhY3RfbWVkaWEodG1wX3BhdGggLyAnbm90LWZvdW5kLm1wNCcsIDYwKQoKCmRlZiB0ZXN0X3RpbnlfZHJpZnRfb25seSh0bXBfcGF0aCwgbW9ua2V5cGF0Y2gpOgogICAgc291cmNlPXRtcF9wYXRoLydyZXN1bHQubXA0JwogICAgc291cmNlLndyaXRlX2J5dGVzKGInbm90IGEgcmVhbCBtcDQnKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihyZWxpYWJpbGl0eSwnbWVkaWFfaW5mbycsbGFtYmRhIHBhdGg6ICg2MCozMC04LCczMC8xJyw2MC4wKSkKICAgIHRyeToKICAgICAgICByZWxpYWJpbGl0eS5maW5hbGl6ZV9mcmFtZXMoc291cmNlLDYwKQogICAgZXhjZXB0IFJ1bnRpbWVFcnJvciBhcyBleGM6CiAgICAgICAgYXNzZXJ0ICfguJzguLTguJTguJvguIHguJXguLQnIGluIHN0cihleGMpCiAgICBlbHNlOgogICAgICAgIHJhaXNlIEFzc2VydGlvbkVycm9yKCdNdXN0IG5vdCBoaWRlIG1pc3NpbmcgOCBmcmFtZXMnKQoKCmRlZiB0ZXN0X2ZpbmlzaGVkX2NoZWNrcG9pbnRfbm90X3JlbmRlcmVkX3R3aWNlKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICBpbXBvcnQgc3lzCiAgICBmcm9tIHR5cGVzIGltcG9ydCBTaW1wbGVOYW1lc3BhY2UKICAgIGNhY2hlZD10bXBfcGF0aC8ncmVzdWx0Lm1wNCcKICAgIGNhY2hlZC53cml0ZV9ieXRlcyhiJ3NhdmVkJykKICAgICh0bXBfcGF0aC8ndjIxX3N1Y2Nlc3MubWFya2VyJykud3JpdGVfdGV4dCgnb2snKQogICAgZGVmIHNob3VsZF9ub3RfcmVlbmNvZGUoKmEsKiprKToKICAgICAgICByYWlzZSBBc3NlcnRpb25FcnJvcignQ29tcGxldGVkIHJlc3VsdCBtdXN0IG5vdCByZS1yZW5kZXInKQogICAgZmFrZV92MTE9U2ltcGxlTmFtZXNwYWNlKHJlbmRlcl90aW1lbGluZT1zaG91bGRfbm90X3JlZW5jb2RlKQogICAgbW9ua2V5cGF0Y2guc2V0aXRlbShzeXMubW9kdWxlcywndjExJyxmYWtlX3YxMSkKICAgIG1vbmtleXBhdGNoLnNldGF0dHIocmVsaWFiaWxpdHksJ2V4YWN0X21lZGlhJyxsYW1iZGEgcGF0aCx0YXJnZXQ6IHBhdGg9PWNhY2hlZCBhbmQgdGFyZ2V0PT0xMjApCiAgICBucz17J2FwcCc6RmFzdEFQSSgpfQogICAgcmVsaWFiaWxpdHkuaW5zdGFsbChucykKICAgIGFzc2VydCBmYWtlX3YxMS5yZW5kZXJfdGltZWxpbmUobnMsJ2pvYicsdG1wX3BhdGgvJ2lucHV0Lm1wNCcsdG1wX3BhdGgvJ3ZvaWNlLndhdicsdG1wX3BhdGgsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBbXSwxMjAsVHJ1ZSwxMjAseydsZW5ndGgnOjEyMH0sW10pPT1jYWNoZWQKICAgIGFzc2VydCBuc1snYXBwJ10uc3RhdGUudjMwX3JlbmRlcl9yZWxpYWJpbGl0eQo=').decode('utf-8')
+          ast.parse(module)
+          ast.parse(tests)
+          app=root/'app.py'
+          content=app.read_text('utf-8')
+          needle='from v30_source_first import install as install_v30\ninstall_v30(globals())'
+          assert content.count(needle)==1, 'V30 installation guard failed'
+          content=content.replace(needle,needle+'\n\n# V30 verified correction: exact video frames and safe resume\nfrom v30_render_reliability import install as install_v30_render\ninstall_v30_render(globals())',1)
+          app.write_text(content,encoding='utf-8')
+          docker=root/'Dockerfile'
+          d=docker.read_text('utf-8')
+          assert d.count('v30_source_first.py')==1, 'V30 Dockerfile guard failed'
+          d=d.replace('v30_source_first.py','v30_source_first.py v30_render_reliability.py',1)
+          docker.write_text(d,encoding='utf-8')
+          (root/'v30_render_reliability.py').write_text(module,encoding='utf-8')
+          (root/'test_v30_render_reliability.py').write_text(tests,encoding='utf-8')
+          assert (root/'app.py').read_text('utf-8').count('install_v30_render(globals())')==1
+          assert 'v30_render_reliability.py' in docker.read_text('utf-8')
+          print('V30 frame correction + resume cache installed. No API requests performed.')
+          PY_RENDER_PATCH
+
+      - name: Full CURRENT-contract non-slow regressions
+        working-directory: ai-clip-studio
+        run: |
+          # The nine explicit deselections below assert REMOVED behavior:
+          # 15-second output, pre-V24 UI/proxy, pre-V26 planner.
+          # They are NOT silently skipped; V24-V30 current-contract tests run.
+          python -m pytest -q -m 'not slow' \
+            --deselect=test_v11.py::test_full_mocked_pipeline_and_restart_checkpoint \
+            --deselect=test_v14_semantic.py::test_prompt_does_not_use_hardcoded_sea_rule \
+            --deselect=test_v14_semantic.py::test_ai_upload_only_called_once_and_marks_strict \
+            --deselect=test_v17_quality.py::test_build_docker_covers_v17_and_static_cache \
+            --deselect=test_v17_quality.py::test_gemini_analysis_cached_before_local_validation_failure \
+            --deselect=test_v20_proxy.py::test_profiles \
+            --deselect=test_v22_scene.py::test_preflight_removes_whole_unallocatable_sentences \
+            --deselect=test_v25_adaptive.py::test_preflight_preserves_minute_when_source_supports \
+            --deselect=test_v25_adaptive.py::test_preflight_does_not_drop_to_two_beats
+          python - <<'PY_CURRENT'
+          import app, v20_proxy, v24_minute_knowledge as v24
+          assert app.APP_VERSION.startswith('v30-')
+          assert app.app.state.v30_source_coverage_first
+          assert app.app.state.v30_extra_deep_analysis_max == 1
+          assert app.app.state.v30_no_extra_tts
+          assert app.app.state.v24_min_duration_seconds == 60
+          assert v24.check_length(60) == 60
+          assert v24.check_length(90) == 90
+          assert v24.check_length(120) == 120
+          for short in (10,15,20,30,55):
+              try:
+                  v24.check_length(short)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f'Short clip unexpectedly allowed: {short}')
+          assert v20_proxy.proxy_profiles(90)[0][:3] == (False,3,480)
+          assert v20_proxy.proxy_profiles(412.5)[0][:3] == (False,2,384)
+          assert any(getattr(x,'path',None)=='/api/v30/info' for x in app.app.routes)
+          print('Current V30 behavior and all 60/90/120-second settings passed')
+          PY_CURRENT
+
+      - name: Full end-to-end video generation tests 60, 90 and 120 seconds
+        working-directory: ai-clip-studio
+        timeout-minutes: 35
+        run: |
+          python -m pytest -vv -s test_v30_end_to_end_mocked.py
+
+      - name: Verify version, code and no legacy short clips before commit
+        run: |
+          python -m compileall -q ai-clip-studio
+          node --check ai-clip-studio/site/app.js
+          python - <<'PY_LAST'
+          from pathlib import Path
+          root=Path('ai-clip-studio')
+          app=(root/'app.py').read_text('utf-8')
+          assert app.count('install_v30(globals())')==1
+          html=(root/'site/index.html').read_text('utf-8')
+          assert all(f'data-val="{x}"' in html for x in (60,90,120))
+          assert not any(f'data-val="{x}"' in html for x in (10,15,20,30))
+          assert (root/'v30_source_first.py').is_file()
+          assert (root/'v30_render_reliability.py').is_file()
+          assert app.count('install_v30_render(globals())')==1
+          print('V30 exact-frame and idempotent-resume install permitted after real MP4 tests')
+          PY_LAST
+
+      - name: Commit only fully verified V30 source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/site/index.html ai-clip-studio/test_v13_safety.py ai-clip-studio/v14_semantic.py ai-clip-studio/v20_proxy.py ai-clip-studio/v30_source_first.py ai-clip-studio/test_v30_source_first.py ai-clip-studio/test_v30_end_to_end_mocked.py ai-clip-studio/v30_render_reliability.py ai-clip-studio/test_v30_render_reliability.py
+          if git diff --cached --quiet; then
+            echo 'V30 already installed'
+            exit 0
+          fi
+          git commit -m 'V30 exact 30 FPS 60-120 seconds and idempotent resume verified' 
+          git push origin HEAD:main
