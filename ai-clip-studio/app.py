@@ -855,3 +855,7 @@ install_v13_safety(globals())
 # V14: per-sentence visual evidence for any narration subject, not keyword templates.
 from v14_semantic import install as install_v14
 install_v14(globals())
+
+# V15: one-minute editorial delivery with exact 1800-frame verification.
+from v15_60seconds import install as install_v15
+install_v15(globals())

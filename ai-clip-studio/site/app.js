@@ -7,7 +7,7 @@
   localStorage.removeItem('ai_clip_studio_active_job_v7');
   const storageKey='ai_clip_studio_active_job_v11';
   localStorage.removeItem('ai_clip_studio_active_job_v8');
-  const selected = {length: '30', aspect: '9:16', voice:'female'};
+  const selected = {length: '60', aspect: '9:16', voice:'female'};
   const error = msg => {el('formError').textContent = msg;el('formError').hidden = !msg;};
   const show = (id, on) => el(id).classList.toggle('hidden', !on);
   document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {

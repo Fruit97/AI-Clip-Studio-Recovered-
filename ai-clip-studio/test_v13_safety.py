@@ -58,7 +58,7 @@ def test_503_stops_after_3(monkeypatch):
 
 def test_live_app_wired_to_v11_v12_v13():
     import app
-    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION)
+    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION)
     assert app.app.state.v11_semantic_grounded
     assert app.app.state.v12_capacity_fallback
     assert app.app.state.quota_aware
