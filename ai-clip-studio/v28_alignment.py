@@ -8,6 +8,7 @@ coverage rather than only the first failed sentence.
 from __future__ import annotations
 import json
 import math
+import copy
 from pathlib import Path
 
 VERSION = 'v28-topic-grounded-visual-evidence-and-diagnostics-2026-10-31'
@@ -126,6 +127,7 @@ def install(ns):
     previous_normalize = v11.normalize_beats
 
     def normalize(raw, shots, duration):
+        original_evidence = copy.deepcopy(raw)
         try:
             return previous_normalize(raw, shots, duration)
         except RuntimeError as exc:
@@ -133,7 +135,7 @@ def install(ns):
             if context is None:
                 raise
             folder = Path(ns['WORK']) / str(context['jid'])
-            first = coverage_report(raw, shots)
+            first = coverage_report(original_evidence, shots)
             second = None
             cached = folder / 'analysis-replanned-v27.json'
             if cached.is_file():

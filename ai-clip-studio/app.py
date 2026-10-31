@@ -903,3 +903,7 @@ install_v27(globals())
 # V28: accurate subject illustrations and visual coverage diagnostic
 from v28_alignment import install as install_v28
 install_v28(globals())
+
+# V29: correct already-used shot priority and raw audit snapshot
+from v29_verified_selection import install as install_v29
+install_v29(globals())

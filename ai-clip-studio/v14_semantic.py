@@ -125,7 +125,7 @@ def normalize(analysis, shots, source_duration, legacy_normalize):
         if not valid:
             rejected.append({'beat':i,'reason':'no visually evidenced matching shot','narration':narration[:80]})
             continue
-        valid.sort(key=lambda e:(e[1] not in used,-e[0]))
+        valid.sort(key=lambda e:(e[1] in used,-e[0]))
         best_sid=valid[0][1]
         chosen=lookup[best_sid]
         caption=str(entry.get('caption') or narration).strip()[:65]
