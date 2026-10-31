@@ -1,0 +1,233 @@
+name: V20 Lightweight Proxy - Quota Safe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v20.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verified-proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - name: Checkout existing project
+        uses: actions/checkout@v4
+
+      - name: Python matching production
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg and offline testing packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+
+      - name: Add low-CPU proxy and tests without calling Gemini
+        shell: bash
+        run: |
+          cat > ai-clip-studio/v20_proxy.py <<'PY_PROXY'
+          """V20: resource-limited analysis proxy with input-keyframe-first decoding.
+
+          Only the Gemini analysis proxy is reduced; final cuts still use the original
+          uploaded video at full quality. No Gemini calls occur in this module.
+          """
+          from __future__ import annotations
+          import os
+          from pathlib import Path
+
+          VERSION = 'v20-adaptive-proxy-2026-10-31'
+
+
+          def proxy_profiles(seconds):
+              """Cheap profiles first, with a more conservative fallback on failure."""
+              if seconds > 180:
+                  return [(True, 2, 384, 360), (True, 1, 320, 240)]
+              if seconds > 60:
+                  return [(True, 4, 480, 300), (True, 2, 384, 210)]
+              return [(False, 6, 512, 240), (True, 3, 384, 150)]
+
+
+          def make_proxy(source, dest):
+              import v11
+              source, dest = Path(source), Path(dest)
+              if v11.media_ok(dest, 1):
+                  return dest
+              if not source.is_file():
+                  raise RuntimeError('ไม่พบไฟล์ต้นฉบับสำหรับสร้าง PROXY')
+              duration = v11.duration_of(source)
+              if not (1 <= duration <= 24 * 3600):
+                  raise RuntimeError('ความยาวต้นฉบับไม่ถูกต้องหรือยาวเกินขอบเขตของบริการ')
+              errors=[]
+              for fast_seek, fps, max_side, timeout in proxy_profiles(duration):
+                  tmp=dest.with_name(dest.stem + '.v20.tmp.mp4')
+                  tmp.unlink(missing_ok=True)
+                  args=[]
+                  if fast_seek:
+                      # Decode only intra/key frames for analysis. Filter restores a
+                      # constant-rate timeline, preserving the original timestamps.
+                      args+=['-skip_frame','nokey']
+                  args+=['-i',str(source),'-map','0:v:0','-map','0:a:0?',
+                         '-vf',(f'fps={fps},'
+                                f'scale={max_side}:{max_side}:force_original_aspect_ratio=decrease:force_divisible_by=2,'
+                                f'format=yuv420p,tpad=stop_mode=clone:stop_duration=12,trim=duration={duration:.4f}'),
+                         '-c:v','libx264','-preset','ultrafast','-crf','33','-threads','1',
+                         '-c:a','aac','-ac','1','-ar','16000','-b:a','24k',
+                         '-max_muxing_queue_size','1024','-movflags','+faststart',str(tmp)]
+                  try:
+                      v11.ffmpeg_run(args,timeout=timeout)
+                      if not v11.media_ok(tmp,1):
+                          raise RuntimeError('PROXY MP4 ที่ FFmpeg สร้างไม่สมบูรณ์')
+                      converted=v11.duration_of(tmp)
+                      if abs(converted-duration)>max(5.0, duration*0.002):
+                          raise RuntimeError(f'ความยาว PROXY ไม่ตรงต้นฉบับ ({converted:.2f}/{duration:.2f} วินาที)')
+                      os.replace(tmp,dest)
+                      return dest
+                  except (RuntimeError, OSError) as exc:
+                      errors.append(str(exc)[-140:])
+                  finally:
+                      tmp.unlink(missing_ok=True)
+              raise RuntimeError('สร้าง PROXY ไม่สำเร็จบนเซิร์ฟเวอร์ปัจจุบัน (ไม่เรียก Gemini): '
+                                 'ต้นฉบับอาจยาวหรือเข้ารหัสหนักเกินกำลัง Render Free; '
+                                 'แนะนำตัดเป็นช่วงสั้นลงหรือแปลงต้นฉบับเป็น H.264 1080p ก่อนอัปโหลด '
+                                 '[FFmpeg: '+(' / '.join(errors))[-240:]+']')
+
+
+          def install(ns):
+              if ns.get('_V20_PROXY_INSTALLED'):
+                  return
+              import v11
+              v11.make_proxy = make_proxy
+              ns['_V20_PROXY_INSTALLED'] = True
+              ns['APP_VERSION'] = VERSION
+              ns['app'].state.v20_adaptive_proxy = True
+              @ns['app'].get('/api/v20/info')
+              def info():
+                  return {'version':VERSION, 'proxy_only':True,
+                          'source_video_untouched':True,'gemini_calls_for_proxy':0,
+                          'keyframe_decode_for_long_source':True,
+                          'checkpoints': 'proxy can be reused while local files persist'}
+          PY_PROXY
+          cat > ai-clip-studio/test_v20_proxy.py <<'PY_TEST'
+          """Offline tests for adaptive proxy. No API keys, no remote requests."""
+          import subprocess
+          from pathlib import Path
+          import pytest
+          import v20_proxy
+          import v11
+
+
+          def test_profiles():
+              assert v20_proxy.proxy_profiles(40)[0][:3] == (False,6,512)
+              assert v20_proxy.proxy_profiles(90)[0][:3] == (True,4,480)
+              assert v20_proxy.proxy_profiles(900)[0][:3] == (True,2,384)
+
+
+          def make_movie(path, seconds, height=360):
+              p=subprocess.run(['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y',
+                  '-f','lavfi','-i',f'testsrc2=size={int(height*16/9)//2*2}x{height}:rate=30:duration={seconds}',
+                  '-f','lavfi','-i',f'sine=frequency=330:sample_rate=24000:duration={seconds}',
+                  '-c:v','libx264','-preset','ultrafast','-threads','1','-g','60',
+                  '-c:a','aac','-b:a','32k','-pix_fmt','yuv420p','-shortest',str(path)],
+                  capture_output=True,text=True,timeout=180)
+              assert p.returncode == 0, p.stderr[-800:]
+              return path
+
+
+          def test_long_source_keyframes_keep_media_time(tmp_path):
+              source=make_movie(tmp_path/'source.mp4',70)
+              dest=tmp_path/'proxy.mp4'
+              v20_proxy.make_proxy(source,dest)
+              assert v11.media_ok(dest,69)
+              assert abs(v11.duration_of(dest)-v11.duration_of(source))<1
+              assert v20_proxy.make_proxy(source,dest)==dest
+
+
+          def test_short_source_standard_decoder(tmp_path):
+              source=make_movie(tmp_path/'source.mp4',4)
+              dest=tmp_path/'proxy.mp4'
+              assert v11.media_ok(v20_proxy.make_proxy(source,dest),3.9)
+
+
+          def test_failure_before_gemini(tmp_path,monkeypatch):
+              source=tmp_path/'source.mp4';source.write_bytes(b'placeholder')
+              monkeypatch.setattr(v11,'duration_of',lambda path: 400)
+              monkeypatch.setattr(v11,'ffmpeg_run',lambda args,timeout=240: (_ for _ in ()).throw(RuntimeError('timed out')))
+              with pytest.raises(RuntimeError,match='ไม่เรียก Gemini'):
+                  v20_proxy.make_proxy(source,tmp_path/'proxy.mp4')
+              assert not list(tmp_path.glob('*.tmp.mp4'))
+
+
+          def test_sparse_keyframes_without_audio_keep_duration(tmp_path):
+              source=tmp_path/'sparse.mp4'
+              p=subprocess.run(['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y',
+                  '-f','lavfi','-i','testsrc2=size=320x180:rate=30:duration=64',
+                  '-c:v','libx264','-preset','ultrafast','-threads','1',
+                  '-g','300','-an','-pix_fmt','yuv420p',str(source)],
+                  capture_output=True,text=True,timeout=120)
+              assert p.returncode==0,p.stderr[-800:]
+              dest=tmp_path/'proxy.mp4'
+              v20_proxy.make_proxy(source,dest)
+              assert abs(v11.duration_of(dest)-64)<0.1
+          PY_TEST
+          python - <<'PY_INSTALL'
+          from pathlib import Path
+          import ast
+          root=Path('ai-clip-studio')
+          app=root/'app.py'
+          text=app.read_text('utf-8')
+          marker='install_v18(globals())'
+          if marker not in text:
+              raise SystemExit('Unexpected app revision. No patch applied')
+          addition='\n# V20: resource-aware PROXY without extra Gemini calls\nfrom v20_proxy import install as install_v20\ninstall_v20(globals())\n'
+          if 'install_v20(globals())' not in text:
+              app.write_text(text+addition, encoding='utf-8')
+          docker=root/'Dockerfile'
+          d=docker.read_text('utf-8')
+          if 'v20_proxy.py' not in d:
+              if 'v18_voice.py' not in d:
+                  raise SystemExit('Unexpected Dockerfile revision')
+              docker.write_text(d.replace('v18_voice.py','v18_voice.py v20_proxy.py'),encoding='utf-8')
+          test=root/'test_v13_safety.py'
+          s=test.read_text('utf-8')
+          previous="__import__('v18_voice').VERSION)"
+          current="__import__('v18_voice').VERSION, __import__('v20_proxy').VERSION)"
+          if current not in s:
+              if previous not in s:
+                  raise SystemExit('Unexpected version assertion in test_v13_safety.py')
+              test.write_text(s.replace(previous,current),encoding='utf-8')
+          for path in root.glob('*.py'):
+              ast.parse(path.read_text('utf-8'),filename=str(path))
+          print('V20 PROXY code added with syntax verification')
+          PY_INSTALL
+
+      - name: Verify proxy processing with real FFmpeg
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q test_v20_proxy.py
+
+      - name: Verify previous editor functions and Gemini quota safeguards
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q -m 'not slow'
+
+      - name: Verify 60-second MP4 with mocked Gemini and real FFmpeg
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q test_v17_end_to_end_mocked.py
+
+      - name: Save only if all tests pass
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ai-clip-studio/v20_proxy.py ai-clip-studio/test_v20_proxy.py ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/test_v13_safety.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'V20 adaptive FFmpeg proxy for large uploaded videos'
+            git push origin HEAD:main
+          fi
