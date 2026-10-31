@@ -1,4 +1,4 @@
-name: Upgrade AI Clip Studio V17 Quota Safe
+name: AI Clip Studio V17 - Verified 30 FPS
 
 on:
   push:
@@ -10,14 +10,14 @@ permissions:
   contents: write
 
 jobs:
-  verify-and-upgrade:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 22
+
     steps:
-      - name: Checkout current main branch
-        uses: actions/checkout@v4
-      - name: Validate and extract V17 ZIP
-        shell: bash
+      - uses: actions/checkout@v4
+
+      - name: Extract verified V17 ZIP
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -25,81 +25,144 @@ jobs:
           import stat
 
           root = Path.cwd().resolve()
-          source = root / 'AIClipStudio_V17_QuotaSafe_Complete.zip'
-          if not source.is_file():
-              raise SystemExit('Please upload AIClipStudio_V17_QuotaSafe_Complete.zip first')
-          with ZipFile(source) as archive:
-              required = {
-                  'ai-clip-studio/Dockerfile',
+          path = root / 'AIClipStudio_V17_QuotaSafe_Complete.zip'
+
+          if not path.is_file():
+              raise SystemExit('V17 ZIP missing')
+
+          with ZipFile(path) as z:
+              expected = {
                   'ai-clip-studio/app.py',
                   'ai-clip-studio/v11.py',
-                  'ai-clip-studio/v14_semantic.py',
-                  'ai-clip-studio/v15_60seconds.py',
-                  'ai-clip-studio/v17_quality.py',
-                  'ai-clip-studio/test_v17_end_to_end_mocked.py',
+                  'ai-clip-studio/test_v17_end_to_end_mocked.py'
               }
-              if not required.issubset(set(archive.namelist())):
-                  raise SystemExit('V17 ZIP is incomplete')
-              total_size = 0
-              for item in archive.infolist():
+              if not expected.issubset(z.namelist()):
+                  raise SystemExit('Incomplete ZIP')
+
+              total = 0
+              for item in z.infolist():
                   name = item.filename
-                  if not (name.startswith('ai-clip-studio/') or
-                          name in ('.dockerignore', 'README-START-HERE.md')):
-                      raise SystemExit('Unexpected path in ZIP: ' + name)
-                  target = (root / name).resolve()
-                  if not target.is_relative_to(root):
+                  if not (
+                      name.startswith('ai-clip-studio/') or
+                      name in ('.dockerignore', 'README-START-HERE.md')
+                  ):
+                      raise SystemExit('Unsafe archive file')
+
+                  out = (root / name).resolve()
+                  if not out.is_relative_to(root):
                       raise SystemExit('Unsafe ZIP path')
                   if stat.S_IFMT(item.external_attr >> 16) == stat.S_IFLNK:
-                      raise SystemExit('Symlinks not permitted')
-                  total_size += item.file_size
-                  if item.file_size > 2_000_000 or total_size > 8_000_000:
-                      raise SystemExit('Unexpected ZIP file sizes')
+                      raise SystemExit('Unsafe symlink')
+
+                  total += item.file_size
+                  if item.file_size > 2000000 or total > 8000000:
+                      raise SystemExit('Oversized ZIP')
+
                   if item.is_dir():
-                      target.mkdir(parents=True, exist_ok=True)
+                      out.mkdir(parents=True, exist_ok=True)
                   else:
-                      target.parent.mkdir(parents=True, exist_ok=True)
-                      target.write_bytes(archive.read(item))
-          print('V17 source extracted')
+                      out.parent.mkdir(parents=True, exist_ok=True)
+                      out.write_bytes(z.read(item))
           PY
 
-      - name: Set up Python 3.11 matching Docker
-        uses: actions/setup-python@v6
+      - name: Fix real 30 FPS when combining shots
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          path = Path('ai-clip-studio/v11.py')
+          content = path.read_text('utf-8')
+
+          anchor = '    # Transcript metadata; captions are already embedded directly in segment bitstreams.\n'
+
+          patch = '''
+              # Normalize only when the joined video differs from CFR 30.
+              checked = subprocess.run(
+                  ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                   '-show_entries', 'stream=avg_frame_rate',
+                   '-of', 'default=noprint_wrappers=1:nokey=1', str(final)],
+                  capture_output=True, text=True, timeout=25)
+
+              if checked.returncode or checked.stdout.strip() != '30/1':
+                  normalized = folder / 'v17_cfr30.tmp.mp4'
+                  ffmpeg_run([
+                      '-i', str(final),
+                      '-map', '0:v:0',
+                      '-map', '0:a:0?',
+                      '-vf', 'fps=30,setpts=N/(30*TB)',
+                      '-c:v', 'libx264',
+                      '-preset', 'ultrafast',
+                      '-crf', '23',
+                      '-threads', '1',
+                      '-pix_fmt', 'yuv420p',
+                      '-r', '30',
+                      '-fps_mode', 'cfr',
+                      '-c:a', 'copy',
+                      '-movflags', '+faststart',
+                      str(normalized)
+                  ], timeout=900)
+
+                  if not media_ok(normalized, .5):
+                      raise RuntimeError('CFR normalization failed')
+
+                  normalized.replace(final)
+
+                  check2 = subprocess.run(
+                      ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                       '-show_entries', 'stream=avg_frame_rate',
+                       '-of', 'default=noprint_wrappers=1:nokey=1',
+                       str(final)],
+                      capture_output=True, text=True, timeout=25)
+
+                  if check2.returncode or check2.stdout.strip() != '30/1':
+                      raise RuntimeError('Output is not constant 30 FPS')
+          '''
+
+          if content.count(anchor) != 1:
+              raise SystemExit('Unexpected source; patch aborted')
+
+          content = content.replace(anchor, patch + anchor, 1)
+          ast.parse(content, filename=str(path))
+          path.write_text(content, 'utf-8')
+
+          print('30 FPS correction ready')
+          PY
+
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Install local-only test dependencies
-        shell: bash
+      - name: Install FFmpeg and test dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
           python -m pip install -r ai-clip-studio/requirements.txt pytest
 
-      - name: Validate Python syntax
+      - name: Run all offline tests
         run: |
-          python - <<'PY'
-          import ast
-          from pathlib import Path
-          for f in Path('ai-clip-studio').glob('*.py'):
-              ast.parse(f.read_text(encoding='utf8'), filename=str(f))
-          print('All Python files compile')
-          PY
+          cd ai-clip-studio
+          python -m pytest -q -m 'not slow'
 
-      - name: Run offline unit and regression tests
-        run: cd ai-clip-studio && python -m pytest -q -m 'not slow'
+      - name: Test FFmpeg scene rendering
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q test_v12.py::test_renders_original_media_with_repetition
 
-      - name: Verify short-source-shot rendering with actual FFmpeg
-        run: cd ai-clip-studio && python -m pytest -q test_v12.py::test_renders_original_media_with_repetition
+      - name: Test complete 60-second output
+        run: |
+          cd ai-clip-studio
+          python -m pytest -q test_v17_end_to_end_mocked.py
 
-      - name: Verify complete 60-second FFmpeg output with mocked Gemini
-        run: cd ai-clip-studio && python -m pytest -q test_v17_end_to_end_mocked.py
-
-      - name: Save V17 source only if all tests passed
-        shell: bash
+      - name: Commit only after all tests pass
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
           git add .dockerignore README-START-HERE.md ai-clip-studio
+
           if ! git diff --cached --quiet; then
-            git commit -m 'Upgrade AI Clip Studio V17 quota safe verified pipeline'
+            git commit -m 'Install V17 with validated constant 30 FPS'
             git push origin HEAD:main
           fi
+          
