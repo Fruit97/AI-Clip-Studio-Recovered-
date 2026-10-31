@@ -915,3 +915,7 @@ install_v30(globals())
 # V30 verified correction: exact video frames and safe resume
 from v30_render_reliability import install as install_v30_render
 install_v30_render(globals())
+
+# V31: truthful subject-linked illustrations for externally grounded facts
+from v31_illustrative import install as install_v31_illustrative
+install_v31_illustrative(globals())

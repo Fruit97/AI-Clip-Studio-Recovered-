@@ -13,18 +13,19 @@
 <div class="nav-end"><span class="online-dot"></span><span class="desktop-only">Video Upload + Gemini</span><a class="help" target="_blank" rel="noopener" href="https://aistudio.google.com/apikey">รับ API Key <span>↗</span></a></div>
 </div></header>
 <main class="wrap">
-<section class="hero"><div class="eyebrow"><span>✧</span> AI VIDEO AUTOMATION <span class="tiny-line"></span> V30 • CINEMATIC EDITORIAL</div>
+<section class="hero"><div class="eyebrow"><span>✧</span> AI VIDEO AUTOMATION <span class="tiny-line"></span> V31 • CINEMATIC EDITORIAL</div>
 <h1>เปลี่ยนวิดีโอยาว<br>ให้เป็น<span class="grad">คลิปสรุปสุดปัง</span></h1>
 <p>อัปโหลดวิดีโอจากเครื่อง ให้ Gemini วิเคราะห์เนื้อหา เขียนบท พากย์ภาษาไทย ตัดต่อ และสร้าง MP4 พร้อมแชร์ — ในที่เดียว</p>
 <div class="hero-features"><span>✦ วิเคราะห์ด้วย Gemini</span><span>◉ พากย์ภาษาไทย</span><span>▣ ซับไตเติลอัตโนมัติ</span></div></section>
 <div class="workspace">
 <section class="panel create-panel"><div class="panel-title"><div class="title-marker">01</div><div><h2>สร้างคลิปใหม่</h2><p>อัปโหลด 720p หรือ 1080p • AI จับคู่ภาพกับบทพากย์ • ส่งออก 720×1280 30 FPS</p></div></div>
+<p class="hint">หมายเหตุ: โหมดสาระน่ารู้ใช้ภาพประกอบจากต้นฉบับ (อาจซ้ำช่วงเดิมพร้อมป้าย ภาพประกอบ) เมื่อคำอธิบายความรู้มีหลักฐาน Google Search แต่ภาพที่จับคู่ตรงทุกประโยคไม่พอ • ไม่สร้างภาพใหม่หรือเนื้อหาใหม่เอง</p>
 <div class="upload-only-banner">✦ โหมดตัดต่อจากไฟล์จริงเท่านั้น — เลือกวิดีโอของคุณ ระบบจะตัดต่อจากภาพเคลื่อนไหวต้นฉบับ</div>
 <form id="studioForm" novalidate>
 <div id="uploadArea" class="uploadzone" tabindex="0" role="button" aria-label="เลือกไฟล์วิดีโอ"><div class="uploadicon">⇧</div><strong id="uploadTitle">ลากไฟล์วิดีโอมาวางที่นี่</strong><span id="uploadHint">หรือแตะเพื่อเลือกไฟล์จากอุปกรณ์</span><span class="format">MP4 · MOV · WEBM · MKV <i></i> สูงสุด 1 GB <i></i> 30 นาที</span><input id="videoFile" name="video" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv" hidden></div>
 <div id="linkArea" class="link-area hidden"><label for="videoUrl">ลิงก์วิดีโอสาธารณะ</label><div class="input-icon"><span>🔗</span><input id="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..."></div><p class="hint">โหมดภาพจริงเท่านั้น: ใช้ภาพจากวิดีโอต้นฉบับมาตัดต่อ หาก YouTube บล็อกการดึงไฟล์บนเซิร์ฟเวอร์ ระบบจะแจ้งข้อผิดพลาด ไม่สร้างภาพตัวหนังสือแทน และไม่ต้องดาวน์โหลดไฟล์ลงมือถือ</p></div>
 <div class="section-head"><h3><span>◈</span> ตั้งค่าวิดีโอ</h3><span class="section-note">ปรับแต่งได้ตามต้องการ</span></div>
-<div class="form-grid"><div class="field"><label>ความยาวเป้าหมาย (ทุกโหมดอย่างน้อย 1 นาที ไม่ทำเสียงช้า/วนฉาก)</label><div class="segment-control" id="lengths"><button type="button" class="choice selected" data-val="60">1 นาที</button><button type="button" class="choice" data-val="90">1 นาที 30 วิ</button><button type="button" class="choice" data-val="120">2 นาที</button></div></div>
+<div class="form-grid"><div class="field"><label>ความยาวเป้าหมาย (ทุกโหมดอย่างน้อย 1 นาที โหมดสาระน่ารู้: มีภาพประกอบจากคลิปเดิมซ้ำได้พร้อมระบุ)</label><div class="segment-control" id="lengths"><button type="button" class="choice selected" data-val="60">1 นาที</button><button type="button" class="choice" data-val="90">1 นาที 30 วิ</button><button type="button" class="choice" data-val="120">2 นาที</button></div></div>
 <div class="field"><label>อัตราส่วนภาพ</label><div class="segment-control" id="aspects"><button type="button" class="choice selected" data-val="9:16">▯ 9:16</button></div></div>
 <div class="field"><label for="tone">สไตล์การเล่าเรื่อง</label><select id="tone"><option value="กระชับ น่าติดตาม เหมาะกับคลิปสั้น">⚡ กระชับน่าติดตาม</option><option value="เล่าเรื่องสนุกแบบเพื่อนเล่าให้ฟัง">◉ เล่าเรื่องสนุก</option><option value="นำเสนอข่าวอย่างเป็นกลาง มีแหล่งที่มาจากวิดีโอเท่านั้น">▣ ข่าวและสาระ</option><option value="สารคดีจริงจัง ถ่ายทอดอารมณ์">✦ สารคดี</option><option value="สาระน่ารู้">💡 สาระน่ารู้ — ความรู้เพิ่มเติมที่มีแหล่งอ้างอิง</option></select></div>
 <div class="field"><label>เสียงพากย์ภาษาไทย</label><div class="segment-control" id="voices"><button type="button" class="choice" data-val="male">♂ เสียงผู้ชาย</button><button type="button" class="choice selected" data-val="female">♀ เสียงผู้หญิง</button></div></div></div>
