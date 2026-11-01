@@ -56,7 +56,7 @@ def test_500_is_not_automatically_retried():
 
 def test_live_app_wired_to_v11_v12_v13():
     import app
-    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION, __import__('v17_quality').VERSION, __import__('v18_voice').VERSION, __import__('v20_proxy').VERSION, __import__('v21_storyflow').VERSION, __import__('v22_scene').VERSION, __import__('v23_retry').VERSION, __import__('v24_minute_knowledge').VERSION, __import__('v25_adaptive').VERSION, __import__('v26_multishot').VERSION, __import__('v27_replan').VERSION, __import__('v28_alignment').VERSION, __import__('v29_verified_selection').VERSION, __import__('v30_source_first').VERSION, __import__('v31_illustrative').VERSION, __import__('v32_recovery').VERSION)
+    assert app.APP_VERSION in (v13_safety.VERSION, __import__('v14_semantic').VERSION, __import__('v15_60seconds').VERSION, __import__('v17_quality').VERSION, __import__('v18_voice').VERSION, __import__('v20_proxy').VERSION, __import__('v21_storyflow').VERSION, __import__('v22_scene').VERSION, __import__('v23_retry').VERSION, __import__('v24_minute_knowledge').VERSION, __import__('v25_adaptive').VERSION, __import__('v26_multishot').VERSION, __import__('v27_replan').VERSION, __import__('v28_alignment').VERSION, __import__('v29_verified_selection').VERSION, __import__('v30_source_first').VERSION, __import__('v31_illustrative').VERSION, __import__('v32_recovery').VERSION, __import__('v33_recovery').VERSION)
     assert app.app.state.v11_semantic_grounded
     assert app.app.state.v12_capacity_fallback
     assert app.app.state.quota_aware

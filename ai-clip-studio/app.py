@@ -923,3 +923,7 @@ install_v31_illustrative(globals())
 # V32: resolve conflicting script budgets and select strongest cached real-source evidence
 from v32_recovery import install as install_v32_recovery
 install_v32_recovery(globals())
+
+# V33: checkpoint-only grounded visual planning rescue (no additional API calls)
+from v33_recovery import install as install_v33_recovery
+install_v33_recovery(globals())
