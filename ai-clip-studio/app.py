@@ -927,3 +927,7 @@ install_v32_recovery(globals())
 # V33: checkpoint-only grounded visual planning rescue (no additional API calls)
 from v33_recovery import install as install_v33_recovery
 install_v33_recovery(globals())
+
+# V34: detect VIDEO coverage refusal before paid TTS; replan source at most once
+from v34_visual_refusal import install as install_v34_visual_refusal
+install_v34_visual_refusal(globals())
