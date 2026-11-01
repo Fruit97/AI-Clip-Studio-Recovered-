@@ -1,0 +1,193 @@
+name: AI Clip Studio V34 - Pre-TTS Visual Coverage Bug and Real Default-Mode MP4 Gate
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v34-pretts-visual-coverage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-v34-only-after-all-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout exact V33 repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install FFmpeg and Python project dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+      - name: Install V34 only on verified V33 source with hash checks
+        run: |
+          python - <<'PY_V34_INSTALL'
+          import json,zlib,base64,hashlib,ast
+          from pathlib import Path
+          root=Path('ai-clip-studio')
+          app=root/'app.py';docker=root/'Dockerfile';safety=root/'test_v13_safety.py'
+          body=app.read_text('utf8')
+          assert body.count('install_v33_recovery(globals())')==1 and '_V34_INSTALLED' not in body, 'Source version not V33; refuse update'
+          d=docker.read_text('utf8');t=safety.read_text('utf8')
+          assert d.count('v33_recovery.py')==1 and 'v34_visual_refusal.py' not in d
+          mark="__import__('v33_recovery').VERSION)"
+          assert t.count(mark)==1, 'V33 app-version test does not match'
+          chunks=[
+          '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',
+          ]
+          packed=''.join(chunks)
+          assert hashlib.sha256(packed.encode()).hexdigest()=='c13bf07bdf56b6f16005b497dbcc31cf3051c407446b2e17fc9fb973369e899e', 'embedded bundle corrupted'
+          modules=json.loads(zlib.decompress(base64.b64decode(packed)))
+          assert set(modules)=={'v34_visual_refusal.py','test_v34_visual_refusal.py','test_v34_default_end_to_end_mocked.py'}
+          for name,content in modules.items():
+              ast.parse(content,filename=name)
+              (root/name).write_text(content,encoding='utf8')
+          app.write_text(body+"\n# V34: detect VIDEO coverage refusal before paid TTS; replan source at most once\nfrom v34_visual_refusal import install as install_v34_visual_refusal\ninstall_v34_visual_refusal(globals())\n",encoding='utf8')
+          docker.write_text(d.replace('v33_recovery.py','v33_recovery.py v34_visual_refusal.py',1),encoding='utf8')
+          safety.write_text(t.replace(mark,"__import__('v33_recovery').VERSION, __import__('v34_visual_refusal').VERSION)",1),encoding='utf8')
+          print('V34 staged: no existing source or tests overwritten')
+          PY_V34_INSTALL
+      - name: Audit V34 strict transport safety and runtime installed hooks
+        working-directory: ai-clip-studio
+        run: |
+          python -m compileall -q .
+          node --check site/app.js
+          python - <<'PY_AUDIT'
+          import app,v27_replan as v27,v30_source_first as v30,v34_visual_refusal as v34
+          assert app.APP_VERSION==v34.VERSION and app.app.state.v34_pretts_coverage_classification
+          message=v34.PRE_VOICE_SOURCE_PREFIX+' | ตรวจภาพ: AI จับคู่หลักฐานภาพเบื้องต้นได้ 3/7 ประโยค'
+          assert v27.is_visual_failure(RuntimeError(message))
+          assert v30.need_deep_repair(RuntimeError(message))
+          for err in ('Gemini API (429): quota exceeded','Gemini API (503)','Gemini TTS error','FFmpeg: bad file'):
+              assert not v27.is_visual_failure(RuntimeError(err)),err
+              assert not v30.need_deep_repair(RuntimeError(err)),err
+          assert v30.TARGETS=={60:490,90:705,120:940}
+          assert any(r.path=='/api/v34/info' for r in app.app.routes)
+          print('Pre-TTS visual refusal now classified correctly on default as well as knowledge tone')
+          PY_AUDIT
+      - name: Full current-contract non-slow Python tests including V34
+        working-directory: ai-clip-studio
+        run: |
+          python -m pytest -q -m 'not slow' \
+            --deselect=test_v11.py::test_full_mocked_pipeline_and_restart_checkpoint \
+            --deselect=test_v14_semantic.py::test_prompt_does_not_use_hardcoded_sea_rule \
+            --deselect=test_v14_semantic.py::test_ai_upload_only_called_once_and_marks_strict \
+            --deselect=test_v17_quality.py::test_build_docker_covers_v17_and_static_cache \
+            --deselect=test_v17_quality.py::test_gemini_analysis_cached_before_local_validation_failure \
+            --deselect=test_v20_proxy.py::test_profiles \
+            --deselect=test_v22_scene.py::test_preflight_removes_whole_unallocatable_sentences \
+            --deselect=test_v25_adaptive.py::test_preflight_preserves_minute_when_source_supports \
+            --deselect=test_v25_adaptive.py::test_preflight_does_not_drop_to_two_beats
+      - name: V34 real 60-second MP4 from default tone 3-of-7 then grounded replan
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v34_default_end_to_end_mocked.py
+      - name: Keep V33 real 60-second MP4 after 5-of-14 and 3-of-5
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v33_end_to_end_mocked.py
+      - name: Keep V32 source recovery MP4
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v32_end_to_end_mocked.py
+      - name: Keep V31 3-anchored-shots MP4
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v31_end_to_end_mocked.py
+      - name: Keep V30 60 90 120 MP4 and resume tests
+        working-directory: ai-clip-studio
+        timeout-minutes: 35
+        run: python -m pytest -vv -s test_v30_end_to_end_mocked.py
+      - name: Docker build plus actual V34 API HTTP smoke check
+        timeout-minutes: 15
+        run: |
+          docker build -f ai-clip-studio/Dockerfile -t ai-clip-studio-v34 .
+          docker run -d --name v34-smoke -p 10024:10000 ai-clip-studio-v34
+          ready=0
+          for i in $(seq 1 35); do
+            if curl -fsS http://127.0.0.1:10024/api/v34/info -o /tmp/v34-info.json; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = '1' || { docker logs v34-smoke; exit 1; }
+          python - <<'PY_CHECK_HTTP'
+          import json
+          x=json.load(open('/tmp/v34-info.json'))
+          assert x['pre_voice_source_refusal_is_not_a_tts_or_quota_error']
+          assert x['actual_http_tts_and_ffmpeg_errors_remain_fatal']
+          print('Docker V34 endpoint ready and responds correctly')
+          PY_CHECK_HTTP
+          docker rm -f v34-smoke
+      - name: Commit V34 to main ONLY after all steps pass
+        run: |
+          git status --short
+          git add ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/test_v13_safety.py \
+            ai-clip-studio/v34_visual_refusal.py ai-clip-studio/test_v34_visual_refusal.py \
+            ai-clip-studio/test_v34_default_end_to_end_mocked.py
+          git diff --cached --check
+          git diff --cached --quiet && exit 1 || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'V34 correct pre-TTS source refusal replan for default tone without quota misclassification'
+          git push origin HEAD:main
