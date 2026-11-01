@@ -1,0 +1,207 @@
+name: AI Clip Studio V36.1 - Repair 2 Regression Failures
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v36-repair.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-then-install-v36:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - name: Checkout current project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install FFmpeg and Python libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+      - name: Stage guarded V36 source patch
+        run: |
+          python - <<'PY_PATCH'
+          from pathlib import Path
+          f=Path('ai-clip-studio/v35_continuity.py')
+          s=f.read_text('utf-8')
+          changes=[
+              ("VERSION = 'v35-source-continuity-verified-evidence-2026-11-01'",
+               "VERSION = 'v36-verified-natural-length-2026-11-01'"),
+              ('TARGETS = {60:490, 90:705, 120:940}',
+               'TARGETS = {60:240, 90:360, 120:480}'),
+              ('            if target==60:\n                result=v17.enforce_script_budget(result,target)',
+               '            if target==60 and glyphs(result.get(\'beats\') or []) >= getattr(v17, \'MIN_CHARS\', 390):\n                result=v17.enforce_script_budget(result,target)'),
+              ('            ns[\'notify\'](context[\'jid\'],42,\n',
+               '            context[\'adaptive\']=True\n            ns[\'notify\'](context[\'jid\'],42,\n'),
+              ('    v11.normalize_beats=normalize\n    v11.time_beats=time_beats\n',
+          '''    # Allow a genuinely supported shorter story, never invent padding.
+              # All other jobs still use the unchanged 60/90/120-second contract.
+              import v30_render_reliability as frames
+              before_adjust=v30.adjust_voice
+              before_finalize=frames.finalize_frames
+
+              def contextual_voice(ns1,wav,got,target):
+                  ctx=_ACTIVE.get()
+                  if (isinstance(ctx,dict) and ctx.get('adaptive')
+                          and target in TARGETS and float(got)<target*v30.SPEED_CORRECTION_LIMIT):
+                      if not math.isfinite(float(got)) or float(got)<5:
+                          raise RuntimeError('เสียงพากย์สั้นหรือมีระยะเวลาผิดปกติ')
+                      return float(got)
+                  return before_adjust(ns1,wav,got,target)
+
+              def contextual_mp4(source,target):
+                  ctx=_ACTIVE.get()
+                  if not (isinstance(ctx,dict) and ctx.get('adaptive')):
+                      return before_finalize(source,target)
+                  p=Path(source)
+                  if not p.is_file():
+                      raise RuntimeError('ไฟล์ MP4 ต้นฉบับสำหรับตรวจสอบสูญหาย')
+                  count,fps,seconds=frames.media_info(p)
+                  if (fps!='30/1' or count<150 or not math.isfinite(seconds)
+                          or abs(count/30.-seconds)>.25 or seconds>target*1.35):
+                      raise RuntimeError('วิดีโอความยาวธรรมชาติไม่ผ่านการตรวจ 30 FPS หรือเสียงพากย์ยาวผิดปกติ')
+                  # The original V35 full-minute test emitted 1799/1800 frames.
+                  # A real 60/90/120 s source must use the proven exact-frame
+                  # finishing path, even in this optional adaptive source mode.
+                  if abs(seconds-target)<=.40:
+                      return before_finalize(p,target)
+                  # Only genuinely shorter voice can bypass exact length.
+                  return p
+
+              v30.adjust_voice=contextual_voice
+              frames.finalize_frames=contextual_mp4
+              v11.normalize_beats=normalize
+              v11.time_beats=time_beats
+          '''),
+          ]
+          for old,new in changes:
+              assert s.count(old)==1, 'V35 source changed; stopped safely: '+old[:55]
+              s=s.replace(old,new,1)
+          compile(s,str(f),'exec')
+          f.write_text(s,'utf-8')
+          print('V36 staged; source evidence checks and all unaffected routes retained')
+          PY_PATCH
+      - name: Add V36 regression tests
+        run: |
+          cat > ai-clip-studio/test_v36_adaptive.py <<'PY_TEST'
+          import sys
+          import pytest
+          import v35_continuity as v35
+          import app
+
+          def test_v36_three_confirmed_moments_shorter_story(tmp_path,monkeypatch):
+              from types import SimpleNamespace
+              sh=[{'id':f's{i}','start':i*15.,'end':(i+1)*15.,
+                   'take_id':'verified_take'} for i in range(3)]
+              raw={'_v14_evidence_required':True,'beats':[
+                  {'narration':'คำบรรยายที่มีภาพต้นฉบับยืนยันตรงเหตุการณ์จริงในช่วงนี้อย่างชัดเจนและต่อเนื่องในวิดีโอ '+str(i),
+                   'shot_id':f's{i}','related_shots':[f's{i}'],'caption':'ภาพจากต้นฉบับ',
+                   'source_start':i*15.,'source_end':(i+1)*15.} for i in range(3)]}
+              monkeypatch.setitem(sys.modules,'v14_semantic',SimpleNamespace(normalize=lambda a,s,d,l:a))
+              monkeypatch.setitem(sys.modules,'v21_storyflow',SimpleNamespace(polish_story=lambda a:a))
+              monkeypatch.setitem(sys.modules,'v17_quality',SimpleNamespace(
+                  MIN_CHARS=390,enforce_script_budget=lambda *a:(_ for _ in ()).throw(AssertionError('Old 390-character floor'))))
+              monkeypatch.setitem(sys.modules,'v28_alignment',SimpleNamespace(
+                  coverage_report=lambda *a:{'evidenced_partition_seconds':45}))
+              assert 240 <= v35.glyphs(raw['beats']) < 390
+              selected,notes=v35.select_grounded(raw,tmp_path,sh,45,60)
+              assert selected is not None,notes
+              assert len(selected['beats'])==3
+              assert all(b['_v35_contextual'] for b in selected['beats'])
+
+          def test_v36_short_voice_only_with_context(tmp_path):
+              import app
+              import v30_source_first as v30
+              import v30_render_reliability as frames
+              with pytest.raises(RuntimeError):
+                  v30.adjust_voice({},tmp_path/'none.wav',30.,60)
+              tok=v35._ACTIVE.set({'adaptive':True})
+              try:
+                  assert v30.adjust_voice({},tmp_path/'none.wav',30.,60)==30.
+                  mp4=tmp_path/'short.mp4';mp4.write_bytes(b'test')
+                  prior=frames.media_info
+                  frames.media_info=lambda _: (900,'30/1',30.)
+                  try: assert frames.finalize_frames(mp4,60)==mp4
+                  finally: frames.media_info=prior
+              finally: v35._ACTIVE.reset(tok)
+
+          def test_v36_bad_fps_never_passes(tmp_path):
+              import app
+              import v30_render_reliability as frames
+              mp4=tmp_path/'invalid.mp4';mp4.write_bytes(b'test')
+              tok=v35._ACTIVE.set({'adaptive':True})
+              prior=frames.media_info
+              frames.media_info=lambda _: (900,'24/1',30.)
+              try:
+                  with pytest.raises(RuntimeError,match='30 FPS'):
+                      frames.finalize_frames(mp4,60)
+              finally:
+                  frames.media_info=prior
+                  v35._ACTIVE.reset(tok)
+          PY_TEST
+      - name: Syntax, module hooks, and safety audit
+        working-directory: ai-clip-studio
+        run: |
+          python -m compileall -q .
+          node --check site/app.js
+          python - <<'PY_AUDIT'
+          import app,v35_continuity as v36
+          assert app.APP_VERSION==v36.VERSION
+          assert v36.VERSION.startswith('v36-')
+          assert v36.TARGETS=={60:240,90:360,120:480}
+          assert app.app.state.v35_contextual_source_editor
+          print('V36 module active and no other modes changed')
+          PY_AUDIT
+      - name: Test V36.1 and actual FFmpeg MP4 mock pipeline
+        working-directory: ai-clip-studio
+        timeout-minutes: 25
+        run: |
+          python -m pytest -q test_v36_adaptive.py test_v35_continuity.py test_v35_real_e2e.py
+      - name: Test V34 V33 V32 backward compatibility
+        working-directory: ai-clip-studio
+        timeout-minutes: 25
+        run: |
+          python -m pytest -q test_v34_default_end_to_end_mocked.py \
+            test_v33_end_to_end_mocked.py test_v32_end_to_end_mocked.py
+      - name: Test original fixed 60 90 120 output plus resume
+        working-directory: ai-clip-studio
+        timeout-minutes: 35
+        run: |
+          python -m pytest -q test_v30_end_to_end_mocked.py
+      - name: Docker build and API startup health check
+        timeout-minutes: 15
+        run: |
+          docker build -f ai-clip-studio/Dockerfile -t ai-clip-studio-v36 .
+          docker run -d --name v36-smoke -p 10026:10000 ai-clip-studio-v36
+          ready=0
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:10026/api/v35/info -o /tmp/v36-info.json; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = '1' || { docker logs v36-smoke; exit 1; }
+          python - <<'PY_CHECK'
+          import json
+          j=json.load(open('/tmp/v36-info.json'))
+          assert j['version'].startswith('v36-')
+          assert j['sparse_source_context_mode']
+          print('Real Docker API returned V36 HTTP 200')
+          PY_CHECK
+          docker rm -f v36-smoke
+      - name: Publish to main only after every test passes
+        run: |
+          git add ai-clip-studio/v35_continuity.py ai-clip-studio/test_v36_adaptive.py
+          git diff --cached --check
+          git diff --cached --quiet && exit 1 || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'V36.1 fix missing stubbed threshold and exact full-length frame count'
+          git push origin HEAD:main
