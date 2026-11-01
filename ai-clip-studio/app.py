@@ -931,3 +931,7 @@ install_v33_recovery(globals())
 # V34: detect VIDEO coverage refusal before paid TTS; replan source at most once
 from v34_visual_refusal import install as install_v34_visual_refusal
 install_v34_visual_refusal(globals())
+
+# V35: Source-first, same-camera-take continuity for sparse scenes, any tone
+from v35_continuity import install as install_v35_continuity
+install_v35_continuity(globals())
