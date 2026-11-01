@@ -12,9 +12,9 @@ import math
 import re
 from pathlib import Path
 
-VERSION = 'v35-source-continuity-verified-evidence-2026-11-01'
+VERSION = 'v36-verified-natural-length-2026-11-01'
 _ACTIVE = contextvars.ContextVar('v35_job', default=None)
-TARGETS = {60:490, 90:705, 120:940}
+TARGETS = {60:240, 90:360, 120:480}
 FORBIDDEN = ('gemini api (', 'http 429','http 503','quota exceeded',
              'gemini tts error','ffmpeg:', 'read timeout','api key', 'ไฟล์เสียงพากย์')
 
@@ -87,7 +87,7 @@ def select_grounded(raw,folder,shots,source_duration,target,tone=""):
             result=v14.normalize(copy.deepcopy(item),shots,source_duration,
                                   lambda value,_shots,_duration:value)
             result=v21.polish_story(result)
-            if target==60:
+            if target==60 and glyphs(result.get('beats') or []) >= getattr(v17, 'MIN_CHARS', 390):
                 result=v17.enforce_script_budget(result,target)
             bs=list(result.get('beats') or [])
             if len(bs)<3 or glyphs(bs)<TARGETS[target]:
@@ -228,6 +228,7 @@ def install(ns):
             if selected is None:
                 raise RuntimeError('ตรวจภาพจากผลวิเคราะห์ที่บันทึกไว้ครบแล้ว แต่ยังมีบทที่ยืนยันภาพจริง '
                      'หรือภาพช่วงต่อเนื่องไม่พอสำหรับคลิปที่เลือก หยุดก่อนใช้โควตา TTS') from first
+            context['adaptive']=True
             ns['notify'](context['jid'],42,
                 'พบช่วงถ่ายต่อเนื่องที่เกี่ยวข้อง กำลังเตรียมตัดต่อจากภาพต้นฉบับโดยไม่วนวิเคราะห์เพิ่ม')
             return selected
@@ -257,6 +258,42 @@ def install(ns):
             return output
         finally:_ACTIVE.reset(t)
 
+    # Allow a genuinely supported shorter story, never invent padding.
+    # All other jobs still use the unchanged 60/90/120-second contract.
+    import v30_render_reliability as frames
+    before_adjust=v30.adjust_voice
+    before_finalize=frames.finalize_frames
+
+    def contextual_voice(ns1,wav,got,target):
+        ctx=_ACTIVE.get()
+        if (isinstance(ctx,dict) and ctx.get('adaptive')
+                and target in TARGETS and float(got)<target*v30.SPEED_CORRECTION_LIMIT):
+            if not math.isfinite(float(got)) or float(got)<5:
+                raise RuntimeError('เสียงพากย์สั้นหรือมีระยะเวลาผิดปกติ')
+            return float(got)
+        return before_adjust(ns1,wav,got,target)
+
+    def contextual_mp4(source,target):
+        ctx=_ACTIVE.get()
+        if not (isinstance(ctx,dict) and ctx.get('adaptive')):
+            return before_finalize(source,target)
+        p=Path(source)
+        if not p.is_file():
+            raise RuntimeError('ไฟล์ MP4 ต้นฉบับสำหรับตรวจสอบสูญหาย')
+        count,fps,seconds=frames.media_info(p)
+        if (fps!='30/1' or count<150 or not math.isfinite(seconds)
+                or abs(count/30.-seconds)>.25 or seconds>target*1.35):
+            raise RuntimeError('วิดีโอความยาวธรรมชาติไม่ผ่านการตรวจ 30 FPS หรือเสียงพากย์ยาวผิดปกติ')
+        # The original V35 full-minute test emitted 1799/1800 frames.
+        # A real 60/90/120 s source must use the proven exact-frame
+        # finishing path, even in this optional adaptive source mode.
+        if abs(seconds-target)<=.40:
+            return before_finalize(p,target)
+        # Only genuinely shorter voice can bypass exact length.
+        return p
+
+    v30.adjust_voice=contextual_voice
+    frames.finalize_frames=contextual_mp4
     v11.normalize_beats=normalize
     v11.time_beats=time_beats
     ns['process']=process
