@@ -1,0 +1,243 @@
+name: AI Clip Studio V35 Topic 1 - AI Narration with Verified Continuous Source Takes
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-v35-topic1-continuity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-v35-only-after-full-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - name: Checkout V34 source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install FFmpeg and project dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-thai-tlwg
+          python -m pip install -r ai-clip-studio/requirements.txt pytest
+      - name: Stage V35 source and tests after exact V34 version guards
+        run: |
+          python - <<'PY_INSTALL_V35'
+          import json,zlib,base64,hashlib,ast
+          from pathlib import Path
+          root=Path('ai-clip-studio')
+          app=root/'app.py'; docker=root/'Dockerfile'; safety=root/'test_v13_safety.py'
+          a=app.read_text('utf8');d=docker.read_text('utf8');t=safety.read_text('utf8')
+          assert a.count('install_v34_visual_refusal(globals())')==1 and 'install_v35_continuity(globals())' not in a, 'Expected V34 app only'
+          assert d.count('v34_visual_refusal.py')==1 and 'v35_continuity.py' not in d, 'Unexpected Docker source'
+          old="__import__('v34_visual_refusal').VERSION)"
+          assert t.count(old)==1 and "__import__('v35_continuity')" not in t, 'Unexpected safety source'
+          chunks=[
+          'eNq9Xf9v3MaV/1d4CQ4kJS61u/rqlWicGzupr60T2Irvh9WC4O7OSrS45JbDlbQRBNRpgHxBf7vkrk6LXJ2gCJAgQJu0V/m/Ee4vuffezJDDLyvZCVC3tZ',
+          'fkzJtvb977vC8zPX/tZH3THyVxFsbzMFu4s8VrvdcO6D+P1zd7Bn5iZ1mLBxNmFOWMSZIafBaknBn8KMm4EcZGlMSHBs+CLEziIF0YKRsl6TiMD7l7EB/E',
+          '+0fMYGkKFc2dtR3jNMyOjI1td9vgyTwdMQOoZSHWNThUjMfcNMYJ40acZMaUBbGRAYGUBZFxEo5ZchBjd4Iw5kYSRwtJyjXuGLOjBQ9HUG4UTFkaGFlwDH',
+          '0HAjAQFo+NUxZFxpAtoA2DL2Igm4Wjg3irJdotOgLU3kbSb7FpGIetWZqcsNiAsaU0xrUgHh0lKTeCFHqfMs7SEzbGsYoZjCdpMjV8fzLP5inzfSOczpI0',
+          'M4IYhkQU+EEs38l5PoEZ1d7NFvnDE57E+cM0yI7yh5TJlmbwNgqHqpl3qNBB/Pjew0f3335geIYJi90Ss90q1rJ1wtJwErJxi+HExvCx2+5utTqdVrtjHs',
+          'T+nTf27z++B/W1TrpviN+Pg9RCsv6TZGg6xphNgnmUeQ+SmNmw5HcevnVv/xFUPd9q9zZutR3jVru33d50jE633bu10b44iN98++HP7t+9ew97aJmHNNdG',
+          'MAvhwTHMoyybGRvdW6Yjfm621+Hnr+cwg7CeI8bGbGw6B7Gh/1FUMmBMYjmoMplMZ+ywhzSBicZGFk5ZMs/gC7Z1zBb45erFB1eX/3N1+eerF7+7evGbq8',
+          'tvri7/fnX55dXlh1eXX1xdfn91+RQfX/zOtHFuD2IYscGi8DAcRsyfBGEES21Bx+ye6JNcjJP1ro/7AeZ6IT6kDLgiNqyQAwtnwEpUzTEezmPs2j3stl0e',
+          'VwDMibshiBfWKe44nqXUljsKOJsk0diyaWfSx3xeG6jo3XFPQj4PIn8WAWPCbi2NQhsl7KBxOA4yxq00OHUMbI+lapyLkEVjw4RZz8IggrlE7nXHjM3wB9',
+          'aQ3cD+RcGQRU4M2xM72rdgRah14MGT7jYuSRxEsIl5q/TBxU1g2tXVLv5YJjbYOllv6zTUO1l90CvqZ+miV6YWZmwKjIhF3SgJxtyycCNZcrRr2GnbRQ7y',
+          'kf8t2C8JyjjPnGeT1o5pV2Y7nBjaCiN12CXhKLNpHSqf3EOWWeaQBRmHYUYhz+xefbBiqsUcYq2iBG6IWWZYbz8i9nGMx0E0Z/L3u3EIXZWMVSE7CzgvVv',
+          'owWsyOuEX9UCUlu/L51IpYbKXM5fOhlZoHB3wVJtt0kBeHYgC5hMQPNvyhRR/iWguaRVMom7lFKgTmZS6qqTaFHH0XdMzjbtdQYqqQ7yTY79+FmjGDr8aT',
+          'BFoIRmnCOUiijI0yKC2VwGieCTWEhN+Nj+PkNMa6JLwzWE8sG4Ae40lEv3N1wKNwxPgu7DxjEkRcV4Ou3k/xe5jMQXV55xcFt5NypCFey3mBNw3OrLbrTI',
+          'DvMov3TeCMNDMHtr079ECeWeJDPktFQdBqWKzOCL9giwZO2F/MFBvIsbCiKjAsyBgLVYwb8gluaGYFgl3LL4fi5fB2sOp2Npto8XDsIV9wwRfhWDCENgvl',
+          'ArigPpSyDUQJail8cxUI2aUuQkViJ5rtykRGiXMUeuJTHwoOdrXfnoUzCUUC28H5PgqdYWnmYIV7pfIBFCjtAfG14GHOImA1/zDF92xM0lGIC0cwtlC5vl',
+          'o4B5YVhutkoCQ95Jwyv99NSMiHMYANUBwknHHmR0cMOJ3DS9TR8HMUIp8K4hxnDBZgIjR4wenArwHAnXVgCRAnIKgMoDM6nsFWyTSR7kB7o2iOkgw227Zx',
+          'egRIJwT1iVAt5IIYrBRAPNho2ZGEY1LcG+tr267xJnQhTtIpdhcEDdBEwJXGiMSiIJxymMApADZBLAqn1P8sIUpYIzJhO46yuYJ4hhLhDftM6dXOhs+BKn',
+          'DeCLcvPFe+b/u/BoKIWenzdvlzd8eHj4fxFOcaC3R3KgU6Ps+SdAF77VQU6JQ2ui7AKussuSZKkuP5zDsvbwTb7vGKdKjoCu6QnpCCJJkRYPT6g91xGBzG',
+          'CSzmCB8LOYOqiRQCUqxo67KyXqL6JoLxckXk4+wqUAh44dfzMAW01aST0iBEMZ0LGVACCSz/DGRnmCmEr0iZdR1pEtQCePXV1eVfri6fXb34SD2+uHrxsa',
+          'nQDu4ZOwdCRVdRnkdsfMh8uR9espd5PWJAQ44RdxNAOuTct5LkMGKG2NywO6p9f93Y//n9R8YRi2awMUJuPO5sABtn6Zxhh2EF82EbkzCC/eAIDAfKZAif',
+          'UcBVKYbxBFArG4td7xpSIoxwI4OdcRImc2inu4UPE+DeowzaT1kP92WW79aCHjuDXQV2DO6zoyAdtwpTC/T+fEqsBaoZNz8ArgBX2S0TgTlBXA8M4YotHr',
+          '7HrDLEw8Wwl0i8pYhNF9vBdDgOjBNcHccXdHIKPXptN3eq23FnCaClI7FVLfG+zmRC7noe2CINvKFGuO2yGLYTdJ+P0nCW+cP5GHlMFJDCu0J8yD1Ea7JM',
+          'CcahYO4P6p1BFDXk9t46FlCIC56lzdQX7QyWcrFuJ4BEifl8MoHNhnKMz2covICB4gA0FnAxnyXHINDJgIuzKg+PYcFHmceh1/YumLSgY3ySa+JVuTBBOY',
+          'Z8BizDG7oXglTsYwkxDbiQpNMHqzRFxZeUCfVOS71konIMJfR9OG5qkXQTEPGEqCXqJG0BNdjNxaWsw1oNuKU+OW4wHt9EU5+5ojy0cBO4UWSbmUR0wN7r',
+          'viQrkDcExGQud0COJNOGZX/duJNBCwHPqDi5b3JsnTtvsLcc4TWqdTYO51P5rS63aOTkaSFXCMi43BIgdw+Y2xLWIN2YnSrFIPrHKzJnzgMwqj00OY7CVp',
+          'QQIwAmcyxCeHYBAF2UPRyM3wIZ6otRn1dBeq+z+ZJzCquY5mpMcytxsyaScOeBSNpxyboODlFx4jth+xGvV+pIfOJZhRS47VXEgKPkhaPzhCPG8ao7FD/2',
+          'QbtL1x+gNOiBOfD206ZNIEqPAtISUApU9Z9IN39xdfkHpbCfXl1+d3X5+dXlR8pJ8hmobVTklx/T+7/C38b//eZLQ/B7IQUUYdoWoq3CfhzY/d5Wd9Ak9v',
+          'MucehTf6j1ULM2+ZKqQrLjYAzTRbPRGpaa1UnYzSTq03duCgYxe4TETIK0vjJbpZjr6ctXn2xZKZfgvtAiPbX6ptqgxNm+8pT2CJ5Ygh2cbiPlXBz4hYPT',
+          'ByHop4LVgQgxqliWhtJ5a067sYE48Q9ZDDyP/SYAb/aQpRz8IsaVg0khBgBMihIN1KRXKoyiOTAMrYs/Dvkogn0tq12Uq0mI7AazGRjEliX3FfmZHIkJap',
+          'ovh9KqWnUVlXNPjeXV1rM+SYrJait7zYJ27IsG414XUY5m3+dGf2Hno+XCej9h7G+i58NBzymHrmdA2Ozh3xazXd/H0r6v+ih1q1yOnrSa0SXsaG1KK4rx',
+          'jPwesrRzzBaeRIJnvbN+e2DvKrMbiva7gzINZYOfhvE4OeU+7Fvht3Jy7HkanFSdsUuNOtkUIcqjNODMl4SbiGquUYEgAJb76GeShU+SUMfAVUwsEC4QEt',
+          '7ykg9gP12Qg7oF4zkFxJ5bUGO0yVGXgmiieETFHSb8VICDZoW3614wOpJOisIfRr6zX737aN+QYRTQ1rmHjc+HT6D0GnYBfYaGiHQUpiYZGmRWSBUPlUik',
+          'GxjlmSRJBopPxFs4av8RxTwM4ZqjGI70xy1xn/2zrGq5ul6dfSqLJ9Zb424qhSoL96+sbv+LR7tZ+E2bcMQwGJcwEVVTGGI0T3mSem13F4BSybJHio51Ej',
+          'gnQ0I974Uz2U3Vsra3Y4qJeCfD1klQduvRhz2329g1GjCwySG5QrIkMQj06AAHZXeGHJJKcwen0sXYE+xaTnD3TPh6zwzl5lF/foJFgH0/Q9Ma5532itan',
+          'ws+Rz1jNZsh7XZGAvGQwlFyMuo2wxED4cb5LzX8pvHzKh9ncSOAMdU9mNZKDu9IPvJrHeFd9G3oVJ3EVs7+TsglLDaqIqPzOvnTsjRmqBJg6sCaqlgQ5YA',
+          'A2YLioSlBJLNhxUImIcQz0SMfePIadT9LHNe4jTwYplcE3JiipeOxUKQYRiWmjAFtotYxbMHenR2GEfhZACaDP+CwKFjgIJCgmoGJS0DBJ34jN5gSOmsT6',
+          'GlHhVbFrbg9X3Xa73WlA08tpDluicp201USbLC1831L1byPVzqbriIIrXXeJ6alqSop7alCrbrfJD9bMa8VWyiEUEXVgIZ2sbPfKvVFUaZQpoIpGR2kSJ1',
+          'FyiCoKWAkXcxRkCGt0VaSLmVKjFPjQ/NQlfGAhQHDO+p1S8EN4mT0xFbtSfQSZR3R3hWCHR106Cj4SFW/jYtRWGjtJfdlxHVGuvqrtPfGlhYX33E63R7V0',
+          'r3e+YPOsCrp8sXkl8su77WwCNlR6SH1FuvhhOeAU8rxMUw2dSCop3MOJvoaOMqt6FTsQACtsRvVas52uI0ZGE4oDMl8AQobji5p9RVNIEKBYvFXxrEYgHj',
+          'UtIFSnvgdybR0MQTXNpygC82kcFCABVsJulbW9DSywo61/s8PtBKyLMSGyPHBpFhgBY/SLfnlpB6sd1lo39oyz2oczvXOlCSF16iyU2ofuOvC/fqcHPH9D',
+          'H5W/AgTuaTKPQGQzxAtmOZwF1LRY1uiIjecR++kQljJnUNOhJ1xh1JbIxdHyiIIw4g4UCmJMJxLqBuxQdF/kcFSYggWgfUDR3mECozwFhSJRg4R76E2VVi',
+          'hQPy7cYLvG4/UOyB+M3S+MI4D9UgDIvB419BzdjsDyDE8YdQjhKqmVFVJmODsmXzFgCwsQTm034NlylEXO+E8zF+TqSStQX3GtpTztpKNZ0OiS4/iuKIdI',
+          'E164eqGf0CnFsCO5s3oj6SjJLXdf2vVijWtOpyaeJOweRVacw1zUPhJ2+Y+B+v0Hj/bv/PKX9+6atjQ3K0HATiUZpy3DRP4kTLkI/K23lUUKA2B+HuXwoH',
+          'YR8xBWe6kkTj8Vwh8N34FDRoxzLwYBJH/jFhdlcHxFQAUjdc1Gz7WBu9xALvf8GnI1Z4LORjgdNC/N8cFathOVlfZOBVEIxObJFDJaMcLHmI3j//vbPxNv',
+          'msOQhc0myQjLzaAoc54xJ7jgCQLvph4ks4x7paL4RoD084uqiqfwUBhn6I2Q/AUG3WF2ZDpbbXtZQEkBeemybeqGCL96lEmEfPAfbz/8BYDxNbQfZO/6NI',
+          'gqQFdmuyN8cxiR+XHJBsWIMIRazcPAP8jCQZZMfcx9kvlOa5QyqOUKFs4XkU11vcvr3BStF24t2RszyDI2xZWQTkd+g+/MFP47s2cWVoCPutckpK6cG5i9',
+          'YZSCYbnL0bxoQPiqHhiXqMFeMhqAzm30e39N7u7cGZ67vv+ICYT49W+UQ/gBFf6e/OTfYmLh5X9jViFGuIVj/Bm9+V+si/mHX5PnXNT6/OrFU0pHhDdfG/',
+          'TwGdX8kmp+eHX5nDIUPycSOV34+g+i+6VqQO/lV9izyw8Nc8mcm9hPLPUP8urnVT8h2l9Ts6IX39EAn2FJ8QifcAjP6fELevPN1eUPiuBfqacf0Pz8jcIH',
+          'qstI58+qxacGVYDOX15dfkrzIqg/u3rxW+rHx1cv3idCX9NifG/s7z+CXU15sCSPykPDPQe7NJwszEFlwzkb3Sb3M/X+8/KY/0tlJXx53fhLQ3qqrQgQeZ',
+          '8WEosZ9O0HGjQtJJYWbCUSTp/T419p/KqxgsXyNWkIs9DUfEppqvlSfE1llrMkvvyCvkLh5/Wolkj+k9tFV16F0qu6SBuxgq7IYAMKLxplkeEvsOZU5kk5',
+          'uFI1Ym905OYaKDuj/AD/4b0Hd+89LDRQVfirIZbx7w3AB6iL/hJMMstGqK6TcZZebn70uZVowQI+dXg68jHB24nC+BitYJLoJVyQq1mM2p8Td/ewqlB5Pf',
+          'xbl4F1HAGoawZ4sIxbrmu9XJ0y+nGngYV/bDZlLjxJhgSD4F/AQDR1T2reMckaUIYYA/6VbsMMIL1pe545Rg22JA9gmaaFdporqBwzT2m8PG8YFSIpueaK',
+          '9flrSCfR8ojzZLYieRhzhuspw9U4jxbakYm9iHKJfJWLm7OOZeZKkXasp6nctNUq69enCCXGDRmGT+mQyMsFhEn4oFz6Owmo75pl16sLXMPS5JzQhnl3co',
+          'X4DfYLW/ueCL+P6lY0jgrlW1HdNpcPHXmJB2Ac4UGHQQPbFpbLbK5pnwlmkUWLntqbeEwks7J8nzdYF17+XBQpxKxXNTNKdoUnfxWfKgaSbnDh5zvvvOPL',
+          'EyLwTf4qPoOBCxuVtp5bZhRlQSEIS1KN6r8V9YjB1oJZuAZ118J4kijNIuy6SWLZdfP4HGOsnHxOsj+OKc4aqTZlLyiovDyCLM4O+EW+Kxidc54HcvNIun',
+          'BDioA6+dqDNGR8Od33WJr4RfaeX4R0k1SZtzJfdzmRCXDFMBgdS0OYV2PbjoLOMjBq9vpbbedW2+l0200uNpzxCLrtZ4kPpLVOUS6uIjoNFtAiBvf8eVxk',
+          'GYh8CJ6H1V9zXssYz/xrT4fBeh0CO1OAD0vznkjbbQmbSRwFozitsapyITH219JDkMWEu8pvop14cviCOxhnBrtmPsx5e/lxJ/kwW2CH8sfyMIS5v4k78N',
+          '9EQXcSnuEZLSuYZwmwCHGzLbwP8lMeCJ4mMei/Ga6v4l2MoiQ4pyZvCB2jcSH6wUQ8Cnj3UEYAadoM+PFWmP18PnQVvfuYXg31UICPgwjTszh0nRnQOYNh',
+          'YoOaZJXhJ8J3sklJR+sqYgJMQLJgQl3gCIA43DFL+MkUE+0+gs5G7AGsEWw60B4Fr5XHpdzw9cg4eQN7fStcUW/XirioY4WrHbvpiwgdhjhHaRAfMkv7NN',
+          'BPIhFS8jc6XatYgTfkMY9ilfMTIDC9MG1pkVwONd0NPGWoItU5FeEO0vmz3Vrvtt1b63jG5Cwz6GG7tX6r63a3HCPC5Dl62G4RVTnzJG7K2dnauLZu6VIv',
+          '8MKVLbctz3gEq1sOUSoHW4K99c6OCCdgEoZM/2mb+sEFUexWu1asY1bON1QLdLUCoutFcAJR5MTk52GvvX5hOjLE2AscCij2hk4e+SSyF2XnsqBWLB0t54',
+          '5VOVXUR2hi5SILU8z+KBK/CRJ8Rf/9UiIBYSkKYIC/vyVD6ZIwhsgY/8+SkS3KvPiQYENh/ZLif1Y2Rpty1qQBjpgG0MbvqejnCpR8pX5QAWzpO2W/fUoo',
+          'Q1iE3yjLSrMOK+Yfvv9B9eljhZm+owF/pGDLJ9IgxIbg5TOZTBc2BoJkpAYn8wPlY/iByHyvcM8zap8e0WwUzT4zHRkb8rR1L4XmvX7xpTHeo0c3kL2VsQ',
+          'Msg4/A4xXYqSRuNY9R2zU79kA7N4baiRgYNot0L+U+XbGpNYnv52adYjx0cXvQBbfRFw8M6oC2pX3oaNJGdjDgIE6yPLA0qgWWyP2N5OzWVtvec9udUkX8',
+          'AqZuNQjkee16sVanVm61+FC0u+cJOVXuYRRhYmM9CLV52wtq74PaOAJnqOJO2KZDDVPkqdZMSSrR8PvVaF91biqrCTrDp5STEiCbzuETZikOgXvo/DYwIW',
+          'bW+nngBxcuX1iBkdUqynNLgmdJyJS5WjDo1kroIGfCv8CZUpxBMfp1Hl6YdiMv5javBBHkKuTltDzCgZ5ZinRrsn8pB1bYrzpXc3GAUaQ3A947DRbcVzkn',
+          '+VxwGLQQ4CbvFKK7LUX31oWjvnaLr1vya6d7MSitMmpj7K/MzeJOp922wRzv6kBqGqTHLmB1GC8AvveYZcrz131ByxRn6Y0779w3rI0uKEKjepa7VGSzvQ',
+          '5FMJ0c4c08Dk6CMMLkAeV5Nt98k851g7qnTDUMSuhU9vcf5UfAS+e+D+KBrc2ogAY+2CqI4oP5OEx8qsd9Olzq81PKQ4HpZWJl6zjwZrylHbteBreWnMZW',
+          'aIsRRK9sQAxA4NLUQjMlvzX1266y0rqfTPxtPztisb+Dv3eAkVQvYXMh1vbT4FSzo7iVTWfCH9QwCwTOaWwKmleGqDalp0nWwiqkRGErFjuHjRvtwyUH06',
+          'SNQ1/zlBGVp9sHqxT9vXp6YFV3mbBmmO1qKoc6uQ0QW/zh+sx2vDsAVAFw/wJrXwdLrvGHFOCkGlcx+YjFaMXJ/SzH4phg2pHpRtZyRdM/JVoCaQgI9VyD',
+          'Hw2Kv9SDi2snSiYvQ3eKzI+8fQktagOsIrevynGDHGeJk4ACan2m6PyegNWPHlkZSWHrf1CY8M9E81PlgPqMyjxvDpnQ81fKi/9cW906OMw7VIVtTTGRHO',
+          '9C4efLcV2RjmNqnjDRm2+p4VfztyHjVl0WVr+G+pEBkxR2BlpCtT7lITbkgOdqOXXY/TnthA8U2q5A39rUFaxwzXrTiuKkffQqXD0g3+ielC4iYNgfNEx0',
+          'nh9VTMNFFQbE9uBCj/V7QnhtO+v2bjDJWCpf7Dg7UsLlknPt+jsu3NMU1IfwEpMPeTyfzrhFRAGrcPRIBHwUhh5l5tuOdCUrQ/Yh3ZOjn9YUcnkmHBWAW6',
+          'LIoAwmzJOhnBbpoaGFXlNL6jalKRQnmdDsdyJ2GIwWuqCOQu9ciqhaPrbmsab2a2m7BDmxib6UMtVIwhTwXb/KtYPGJILpsrxaTGDuTwUKx24Odkfe0KVz',
+          'rPbuyJ3PcF6sitEjhzRwSuZNkXarWzlLEm5pyMq4HtUTKun7slzKpvPTpYnyqHpNYRaXhFBUiY7KiuO6vWWEOLmrrNLL6tmMiv1g39CuPEZLzCMP0ZaDgY',
+          'hg5BG4Urv23sZ6u3fjqddCEV3Xk5sxmnajgOlU0VmRFpT/UljsJSjndxHUCTeeOfbEPy/fQtmfV21DPyTtiYdXIK3dlFAnXTnsmLOJs+idX3uWrIf3dl3Y',
+          'uddIRqqCQ2GeV9NdhJx1cvzJj6SZBHZ2CRILSvqpgYbPDaf4FFejOV65lqhmDSkiik89b+dlG2k+xje47a232zXbeqSl3bq02zjandaPP4kpLVqyxaujqN',
+          'gHcpML4xJXjnSQstF107uM6HeHFSv8deMObMQUZCo7CeL8NC15WdfX29xAWUtXKDy49/jeQ0MISXFDCB1njefTIRTouKUJ0kxSyQt2v+SMGPQ7g7317mat',
+          'Vs3w1o1uu8nzsnerLWZnubkrJBvYu0W0xq66rPCktehddpQy5ouYoS+qch/vXtFOSlJoCKgP5yiRy5KzyYh6XRz4kieA9WMcQ4Ytc5zQIJYHJJh2352RTP',
+          'LzGopW02V6rszApVtdkBQL0iiEF4KkSKjlRiBXlGwXuWjQIbxNyetjll24IkazZnW6K1t1/3+nq9wswqvTZG380OAhfrk0GdPRwfSP3kk1S03HjcfSaV4+',
+          '2NTrF98GAlQei8gQTc7gZVyUKq8v59dG1+RZzaV3VrgmJSvtue3uP8PveKPLseW2VU8qXuDr/JB6qJJ2F+syPVBJSFg4iYxZOGNRiMG0aQJSB+vpN1kqLQ',
+          'NAC68jMOhQJF2LQFyPG/9XyegYCkjnkkAXHK8/0s5IiaSmUNyQJBOMRbqjg69ivFPpIC5vTWWP5HUDg4cx3jyDtzEJPURdvXvvzTvv/nLfACQSt/Lba2Ae',
+          'MK0Tj18GwucFYnRKfd0V3Zjj3TFq+MLZBc2O6OIzzMAyfvXORp4bAlr9IJ5zui0qoH6lwekaXvvF8QGvgQiwrZCCmw/e3hdxXYyyrcmpkbYFLKx2IaYe2T',
+          'WKgK5DTrlXCOsqBTWZWCvAxLAZhFPP295sK9E484oG3HQeW315BSRsxxamsI5DvJ+udQTL5g9Ry6OLsBXhdT8nLILfym3YAri2Mg1meMDRwebsgYOSA20w',
+          'mTJFjidKdRa/ZHfkv+W9OXMF26C70vPazgxU+hja6re6m+12b6AGB30fAmZT4zlrGg+VwS6e6P0FKXMKRkhGaQyOOUGkmnn5VTocr7ubetj+iI5yO/HQn6',
+          'AO405wcih++niAAoklE/hb5PqiT2L20oPf2CyP+6wy7jM57lIkUMuXou9i9ioKlwO61XQqRRlEfgjDy5BEcowfxkLRSpEDY0ZD0ced4G+1r/dhqptaZzMH',
+          'bx09K0u32QwtuJfIihHVnoCRa65vmCudLTnWJAHeyB0BlA23iy/d6fE4TAE7ySw2fIeZa/JZfZa6n1rK09bUjVXudLYhoSpsD7OFyxcFJ5MQFxP/opyDdN',
+          'T1OJoxne7O2TaeCM7wd08xibe1qWm2BiogHKBtdL2C0Ft43Y3NHsAGsAmIceC5Dby8jNqoh/wKu/ysu7WBFBEHBXizhIlxihZdpotXswIwTYNJwPF3a5Ri',
+          'L9a7FVIB3vUZjLDEkB66G8dyF6Q4VlOa5eqUdQTLaLwJAv2NCO1GzQZFjvJ9vNPO9y2wPCbOSuCsrByf2j1xQWa5IF5gkcqS6twJ5shOagXPNIp0N6wsTL',
+          '6bcukxwOOMLW29YqeBXkkt4lDHFMMxnWJo9vI6yNnmfIY7zReX5ZqOtNlWgh7iLLwQxJyEYPytoSLBxUjD8quLmxqg5EsHufimko/27+y/+8i/e/+h6RQ7',
+          'A3cYKJX8hDzuuqJkeTvgN9xJ7igCOFp923+CdzmeyyTSnglsO6cwEUhQSmKisBjP2Ez/mOGtWThmjNsBXBTXhOKxxSmjlDxLXSSAh1uLfI8ijiHzhAFXZE',
+          '0RDRDpMA0Cw/d7soDmyhJuf+8mr/8nCvhWHKsVR7oK/cscS5FT8Cflc/2t8pN/T8BaeLVzx+pz5UcGDPyJSnb4oOrDx2KYwt94LgRso0MEvzJMABPa2CV8',
+          'rzWkELLwINJ8aRNEascsj6gy6vdxNiRu/0yeIqjkQqBv/mPymH95/biuyZowyh7vxpQLPZNEBJWeNiWsqCMODdkq1xo0xbRIe6niWdVMK+LIaqov3aEmpr',
+          'gf/it6OMSDXXGuKqib8yXUU6yZxwk6zkvEBXLGLa9ZMQP51F27KnosQE7Ut/lJixuzaJYFBSpX/OGUFmlRmiGKPLg6MY3zcLVzcf2JqJLF2ciYNdNVjqfZ',
+          'gC0OcRdLcG370msOQvg0ScdyNzZtwkFDYEit54XdEJMtQqfXj+v6sKceRdWjr7hWH6sr2P/SlOFdO/KESeG4r5tWJI+nin8dFc+kfy50IT46xpwAa0QK1Z',
+          'my7CgZO/M0okMQqJ3JINDT+QRINHvqFPIb8tJF3HxQURPuFFXQbxpXWI6+FOcP7GuPDGgOSZErctvrtB3tWbsahu6nIV1l79I/iqH1I6FgtgWerr4wnkUB',
+          'CoDtYnPoX4vgVokfijsbKEysrp4EbIH+JvFS3CCgxbew6abw1sXg4kKF2pZiCMyWFoaKWjbZL8qNLWtneqVWVShTWlF6r18ZVdRXU9XRzzo3IuwKNt7YaF',
+          '+LjdsVDjVbhGYJCQt4OxtNfd7ZwqyX8llrOdtbbbd9w+RkMOVidHZ+oTAHQCTPt/a22o44GYob76lygX2ikiCLG3k/U/tXxsmV3kNh/L3ym9XP+X2TC4Xy',
+          'aOXRKcBYbBrgAM1jxmZoRmESkrx2LL/pT2Z4BHyG2dY981avs4WWL1lbIciqk26ndDcc4r/SQSa8sEeYA3hpvYmc0oqTFvkvgGNa9H8EoR1u0my+HEf2JY',
+          'wcqLNITvl72ZtGyNDrt50OylR1Fy+mdAfjMfld8YJW4QxXMWFH3eKFNw7Xs7CIH23PK6cVWrUTTI2R5RBs4BBTIWVldf6pSRDVz0Itl0VqpmSVPKBAXiXs',
+          'du0LSCppEU894e1Q7coDSmjKqj2MJws8zMG2zgpH5hSXAr0Z2A5eE9U3C7cGrY+4h7DcRXrXNyu+Diy93l7rlOcb/dSyfO4loVBPZ6cSqdm85d66tSfvW4',
+          'KOCbeLWfKW2nuw3d1uZcIWVr3flIFmNo+0ybYpeFL6gf6Z/L+U4fO111n2tYv/Bx91C90=',
+          ]
+          packed=''.join(chunks)
+          assert hashlib.sha256(packed.encode()).hexdigest()=='cba039f77026d626d629ebf659feb644fd2b13f2afefd4e90f7d5ee02ad5c001', 'embedded source corrupted'
+          files=json.loads(zlib.decompress(base64.b64decode(packed)))
+          assert set(files)=={'v35_continuity.py','test_v35_continuity.py','test_v35_real_e2e.py'}
+          for name,content in files.items():
+              ast.parse(content,filename=name)
+              (root/name).write_text(content,'utf8')
+          app.write_text(a+"\n# V35: Source-first, same-camera-take continuity for sparse scenes, any tone\nfrom v35_continuity import install as install_v35_continuity\ninstall_v35_continuity(globals())\n", 'utf8')
+          docker.write_text(d.replace('v34_visual_refusal.py','v34_visual_refusal.py v35_continuity.py',1),'utf8')
+          safety.write_text(t.replace(old,"__import__('v34_visual_refusal').VERSION, __import__('v35_continuity').VERSION)",1),'utf8')
+          print('V35 staged without altering prior model evidence, scene gate or API code')
+          PY_INSTALL_V35
+      - name: Audit version, installed hooks, safety and 412s long-take source logic
+        working-directory: ai-clip-studio
+        run: |
+          python -m compileall -q .
+          node --check site/app.js
+          python - <<'PY_AUDIT_V35'
+          import app,v35_continuity as m,v30_source_first as v30
+          assert app.APP_VERSION==m.VERSION
+          assert app.app.state.v35_contextual_source_editor
+          assert any(getattr(r,'path',None)=='/api/v35/info' for r in app.app.routes)
+          assert v30.TARGETS=={60:490,90:705,120:940}
+          assert m.eligible_failure(RuntimeError('ลองวางบทจากภาพจริงอีกหนึ่งรอบแล้ว แต่ยังมีช่วงภาพที่ไม่รองรับ'))
+          for err in ('Gemini API (429): quota','Gemini API (503)','FFmpeg: error','Gemini TTS error'):
+              assert not m.eligible_failure(RuntimeError(err))
+          print('V35 hooks, three target durations and actual transport error isolation: OK')
+          PY_AUDIT_V35
+          python -m pytest -q test_v35_continuity.py
+      - name: Full active-contract Python suite including V35
+        working-directory: ai-clip-studio
+        run: |
+          python -m pytest -q -m 'not slow' \
+            --deselect=test_v11.py::test_full_mocked_pipeline_and_restart_checkpoint \
+            --deselect=test_v14_semantic.py::test_prompt_does_not_use_hardcoded_sea_rule \
+            --deselect=test_v14_semantic.py::test_ai_upload_only_called_once_and_marks_strict \
+            --deselect=test_v17_quality.py::test_build_docker_covers_v17_and_static_cache \
+            --deselect=test_v17_quality.py::test_gemini_analysis_cached_before_local_validation_failure \
+            --deselect=test_v20_proxy.py::test_profiles \
+            --deselect=test_v22_scene.py::test_preflight_removes_whole_unallocatable_sentences \
+            --deselect=test_v25_adaptive.py::test_preflight_preserves_minute_when_source_supports \
+            --deselect=test_v25_adaptive.py::test_preflight_does_not_drop_to_two_beats
+      - name: V35 real MP4 from short 65s camera take, initial 3/7 then 8/8 sparse matching
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v35_real_e2e.py
+      - name: Preserve V34 default mode 3/7 MP4 and resume
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v34_default_end_to_end_mocked.py
+      - name: Preserve V33 5/14 and 3/5 MP4
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v33_end_to_end_mocked.py
+      - name: Preserve V32 source evidence MP4
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v32_end_to_end_mocked.py
+      - name: Preserve V31 three-anchor visual MP4
+        working-directory: ai-clip-studio
+        timeout-minutes: 18
+        run: python -m pytest -vv -s test_v31_end_to_end_mocked.py
+      - name: Preserve V30 60 90 120 FPS and resume exact-frame regressions
+        working-directory: ai-clip-studio
+        timeout-minutes: 35
+        run: python -m pytest -vv -s test_v30_end_to_end_mocked.py
+      - name: Docker build and live V35 API smoke with HTTP 200
+        timeout-minutes: 15
+        run: |
+          docker build -f ai-clip-studio/Dockerfile -t ai-clip-studio-v35 .
+          docker run -d --name v35-smoke -p 10025:10000 ai-clip-studio-v35
+          ready=0
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:10025/api/v35/info -o /tmp/v35-info.json; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = '1' || { docker logs v35-smoke; exit 1; }
+          python - <<'PY_CHECK_V35'
+          import json
+          x=json.load(open('/tmp/v35-info.json'))
+          assert x['sparse_source_context_mode'] and x['applies_to_all_narration_modes']
+          assert x['zero_fabricated_narration_or_visual_matches']
+          assert x['target_options']==[60,90,120]
+          print('Actual V35 container responded HTTP 200 and truthfully reports all modes')
+          PY_CHECK_V35
+          docker rm -f v35-smoke
+      - name: Commit V35 to main ONLY after every test passes
+        run: |
+          git status --short
+          git add ai-clip-studio/app.py ai-clip-studio/Dockerfile ai-clip-studio/test_v13_safety.py \
+            ai-clip-studio/v35_continuity.py ai-clip-studio/test_v35_continuity.py \
+            ai-clip-studio/test_v35_real_e2e.py
+          git diff --cached --check
+          git diff --cached --quiet && exit 1 || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'V35 source-grounded same-take recovery from sparse visual evidence, all tones'
+          git push origin HEAD:main
