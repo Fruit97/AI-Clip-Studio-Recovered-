@@ -2,7 +2,8 @@
 import base64,io,zipfile,types,json,os,re,urllib.request,urllib.error
 from pathlib import Path
 base=Path(__file__).resolve().parent
-source=zipfile.ZipFile(io.BytesIO(base64.b64decode((base/'site_bundle.b64').read_text()))).read('server.py')
+z=zipfile.ZipFile(io.BytesIO(base64.b64decode((base/'site_bundle.b64').read_text())))
+source=z.read(next(i for i in z.infolist() if i.filename=='server.py'))
 m=types.ModuleType('old_server');m.__file__=str(base/'old_server.py')
 exec(compile(source,'old_server.py','exec'),m.__dict__)
 def call(url,key,payload=None):
