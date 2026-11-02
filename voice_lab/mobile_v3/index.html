@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020"><meta name="description" content="ThaiVoiceLab V3 — โคลนเสียงภาษาไทยด้วย F5-TTS Open Source ผ่าน Google Colab ฟรีค่า API">
+<title>ThaiVoiceLab V3 — โคลนเสียง AI ภาษาไทยฟรีค่า API</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;background:#090f21;color:#f5f7ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 10%,#153a63 0,#121a38 32%,#090f21 70%)}.shell{max-width:980px;margin:auto;padding:24px 20px 56px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 35px}.logo{font-size:1.27rem;font-weight:850;letter-spacing:-.7px}.logo b{color:#69e7f7}.chip{font-size:12px;border:1px solid #395473;color:#8ce7c2;background:#102f38;border-radius:99px;padding:7px 12px;font-weight:700}.eyebrow{letter-spacing:.12em;color:#73e2ff;font-size:12px;font-weight:800;margin:0 0 16px}
+h1{font-size:clamp(2.15rem,7vw,4.35rem);line-height:1.22;letter-spacing:-1.5px;margin:0 0 16px}h1 em{font-style:normal;color:#7edaf5}.lead{font-size:1.08rem;line-height:1.85;color:#c3d1e9;max-width:750px;margin-bottom:27px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0 24px}
+.button{display:inline-flex;text-decoration:none;text-align:center;align-items:center;justify-content:center;min-height:54px;border-radius:14px;padding:14px 24px;font-weight:800;border:1px solid #36506b;background:#1a2a44;color:white;line-height:1.4}
+.button.primary{background:linear-gradient(115deg,#2ed2e9,#7564ee);border:0;color:#fff;box-shadow:0 10px 35px #3298d13c}
+.notice{padding:18px;border-radius:15px;border:1px solid #3b4d6c;background:#111f37;color:#cdd8ea;line-height:1.8}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:29px 0}.card{background:#111e36dd;border:1px solid #34455d;padding:24px;border-radius:19px;min-height:180px}.num{color:#6fe6ee;font-size:.84rem;font-weight:800}.card h2{font-size:1.1rem;margin:16px 0 10px}.card p{color:#bdc9df;line-height:1.75;margin:0;font-size:.94rem}
+section.info{border-top:1px solid #31425c;margin-top:35px;padding-top:20px}section.info h2{font-size:1.23rem}section.info p{line-height:1.8;color:#c9d3e6}
+footer{border-top:1px solid #34425b;margin-top:38px;padding-top:23px;color:#8b9cb9;font-size:.82rem;line-height:1.7}
+a:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:740px){.grid{grid-template-columns:1fr}.card{min-height:auto;padding:20px}.button{width:100%}header{padding-bottom:25px}.shell{padding:20px 16px 40px}.actions{flex-direction:column}.lead{font-size:1rem}h1{letter-spacing:-.8px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header><div class="logo">🎙 ThaiVoice<b>Lab</b> <span style="font-size:12px;font-weight:400;color:#b9c8df">V3</span></div><span class="chip">ฟรีค่า API</span></header>
+<main>
+<p class="eyebrow">OPEN SOURCE • THAI AI VOICE CLONING</p>
+<h1>โคลนเสียง AI ภาษาไทย<br><em>ผ่าน Xiaomi Pad 6</em></h1>
+<p class="lead">อัปโหลดเสียงตัวอย่างของคุณ พิมพ์บทพูด แล้วให้โมเดล F5-TTS-THAI สร้างเสียง MP3 ผ่าน Google Colab โดยไม่ต้องมีคอมพิวเตอร์ และไม่ใช้ ElevenLabs API</p>
+<div class="actions"><a class="button primary" href="https://colab.research.google.com/github/Fruit97/AI-Clip-Studio-Recovered-/blob/thai-voice-lab-open-v2/voice_lab/ThaiVoiceLab_V3_Colab_Thai.ipynb" target="_blank" rel="noopener noreferrer">🚀 เปิด AI โคลนเสียงใน Colab ↗</a><a class="button" href="https://thai-voice-lab-open-fruit97.onrender.com" target="_blank" rel="noopener noreferrer">คลังเสียงต้นแบบเว็บ V2 ↗</a></div>
+<div class="notice"><strong>สำคัญ:</strong> ตัว AI รันในโน้ตบุ๊ก Google Colab ไม่ได้รันอยู่บนเว็บนี้ ต้องลงชื่อเข้าใช้ Google และกดรันเซลล์เพื่อสร้างเสียง การใช้งาน Colab Free ขึ้นกับโควตาและ GPU ที่ระบบจัดสรร จึงไม่รับประกันว่าจะใช้งานได้ทุกครั้ง</div>
+<div class="grid" aria-label="ขั้นตอนใช้งาน">
+<article class="card"><span class="num">ขั้นตอน 01</span><h2>เชื่อมต่อ Google Colab</h2><p>เปิดลิงก์ด้านบน กดเชื่อมต่อ และเลือก T4 GPU ใน Runtime หากมีให้ใช้</p></article>
+<article class="card"><span class="num">ขั้นตอน 02</span><h2>ติดตั้ง + ใส่บทพูด</h2><p>รันเซลล์ที่ 1 จากนั้นกรอกข้อความที่พูดจริงในตัวอย่างเสียงและข้อความใหม่ที่ต้องการให้ AI พูด</p></article>
+<article class="card"><span class="num">ขั้นตอน 03</span><h2>เลือกไฟล์ + ดาวน์โหลด</h2><p>ติ๊กยืนยันสิทธิ์เสียง รันเซลล์ที่ 2 อัปโหลดเสียงจากแท็บเล็ต แล้วดาวน์โหลด MP3 เมื่อเสร็จ</p></article>
+</div>
+<section class="info"><h2>ต้องเตรียมอะไรบ้าง?</h2><p>Google Account และไฟล์เสียงพูดของตัวเองที่ชัดเจนราว 2–8 วินาที (MP3/WAV/M4A) ไม่มีเพลงพื้นหลัง ต้องทราบคำพูดในคลิปตรงกับเสียงจริง และใช้งานเมื่อมีสิทธิ์ในเสียงนั้นเท่านั้น</p>
+<h2>ข้อมูลเสียงถูกเก็บที่ไหน?</h2><p>ไฟล์ที่เลือกใน Colab จะถูกส่งไปประมวลผลใน Google Colab runtime ของบัญชีคุณ ไม่ใช่เว็บไซต์ Render และจะไม่ถูกย้ายจากคลังเสียงในเว็บ V2 โดยอัตโนมัติ</p></section>
+</main>
+<footer>ThaiVoiceLab V3 • F5-TTS-THAI Open Source • ไม่มีค่า API (ค่าทรัพยากรขึ้นกับวิธีใช้งาน) • ใช้เสียงของตัวเองหรือเสียงที่ได้รับอนุญาตเท่านั้น</footer>
+</div>
+</body>
+</html>
