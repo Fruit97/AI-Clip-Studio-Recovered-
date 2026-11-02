@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020"><title>ThaiVoiceLab — AI โคลนเสียงภาษาไทย</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;color:#eef2ff;background:#0b1020;--line:#29334e;--muted:#a2abc2;--accent:#6e79ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#192a53 0,transparent 35%),radial-gradient(circle at 95% 10%,#321b53 0,transparent 32%),#0b1020;min-height:100vh}
+.wrap{width:min(1130px,calc(100% - 28px));margin:auto}
+header{padding:27px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #26314b}
+.brand{font-size:24px;letter-spacing:-1px;font-weight:850}.brand b{color:#929bff}.tag{color:#aab3da;background:#202947;border:1px solid #34436b;border-radius:30px;padding:7px 12px;font-size:12px}
+.hero{text-align:center;padding:50px 0 33px}.tiny{color:#8fafff;font-size:12px;letter-spacing:1.6px;font-weight:800}.hero h1{font-size:clamp(29px,5vw,52px);letter-spacing:-1.4px;margin:14px auto;line-height:1.3}.hero h1 span{background:linear-gradient(90deg,#90c4ff,#bb9dfc);color:transparent;background-clip:text}.hero p{max-width:670px;margin:0 auto;color:var(--muted);line-height:1.8}
+.pills{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:24px}.pills span{background:#1b2540;border:1px solid #364261;border-radius:20px;padding:8px 13px;color:#cad4f9;font-size:13px}
+.panel{background:#141d32e8;border:1px solid var(--line);box-shadow:0 12px 38px #0002;border-radius:20px;padding:25px}
+.keypanel{display:flex;gap:20px;justify-content:space-between;align-items:center;margin:12px 0 22px}.keypanel>div:first-child{max-width:340px}.keypanel h2{margin:0 0 5px;font-size:19px}.sub{margin:0;color:var(--muted);font-size:13px;line-height:1.65}
+.keyoptions{min-width:min(450px,100%);display:grid;gap:9px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+h2{font-size:21px;letter-spacing:-.4px;margin:6px 0}h3{font-size:16px;margin:25px 0 13px}
+.step{font-weight:800;font-size:12px;color:#a7b5ff;letter-spacing:.7px}
+.subtitle{color:var(--muted);font-size:13px;margin:0 0 25px}
+label.field{display:block;color:#dae2ff;font-weight:650;font-size:13px;margin:17px 0 9px}
+input[type=text],input[type=password],textarea,select{width:100%;min-width:0;border:1px solid #34415f;color:#f2f5ff;background:#0e172b;border-radius:11px;padding:14px;font:inherit;outline:none}
+input:focus,textarea:focus,select:focus{border-color:#98a3ff;box-shadow:0 0 0 3px #7380fc33}
+textarea{min-height:210px;resize:vertical;line-height:1.8}
+button,a.action{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:750}
+.primary{color:white;background:linear-gradient(115deg,#566cf4,#785bee)}.primary:hover{filter:brightness(1.14)}.primary:disabled{opacity:.5;cursor:wait}
+.full{width:100%;margin-top:20px}.outline{background:#29334f;color:#dbe2ff}.outline:hover{background:#39476c}
+.keyrow{display:flex;gap:8px}.keyrow input{flex:1;min-width:0}.keyrow button{padding:0 17px}
+.check{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:#c1cbe6;line-height:1.65;cursor:pointer}.check input{accent-color:#7c8cfe;transform:translateY(2px)}
+.upload{position:relative;border:1.5px dashed #57668a;background:#101b33;border-radius:15px;padding:22px 14px;text-align:center;min-height:165px;display:flex;justify-content:center;align-items:center;flex-direction:column;gap:7px;cursor:pointer}
+.upload:hover{border-color:#93a3ff;background:#18284a}.upload input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}.upload strong{font-size:17px}.upload small{color:#97a6c6}
+.audio{display:block;width:100%;margin-top:13px}.hint{font-size:12px;color:#98a7c8;line-height:1.6;margin:12px 0}
+.tip{font-size:12px;background:#1d2948;padding:14px;border-radius:12px;color:#b5c6eb;line-height:1.7;margin-top:15px}
+.voice{display:flex;gap:8px;justify-content:space-between;align-items:center;border:1px solid #34405d;background:#111a2d;border-radius:12px;padding:11px;margin:7px 0}
+.voice strong{font-size:13px;overflow-wrap:anywhere}.voice small{display:block;color:var(--muted);font-size:10px;margin-top:4px}.voice button{padding:8px 9px;font-size:12px}
+.voice .actions{display:flex;gap:6px}.voice button.remove{background:#4d2839;color:#ffc0cf}
+.mini{background:transparent;border:0;padding:8px 0;color:#a1b5ff;font-size:13px;font-weight:700}
+.counter{text-align:right;font-size:12px;color:#9fabc9;margin-top:7px}
+.output{margin-top:20px;background:#112b2e;border:1px solid #25535c;border-radius:15px;padding:17px}.output strong{color:#a4f5ce}.output audio{width:100%;margin:15px 0}
+a.action{display:block;text-align:center;text-decoration:none;background:#267f65;color:white}
+.placeholder{border:1px dashed #40506f;border-radius:15px;min-height:165px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#8e9bb9;margin-top:24px;text-align:center;padding:15px}
+.placeholder strong{color:#ccd7f3}.placeholder div{font-size:37px;color:#a9a7ff;margin:8px}
+footer{color:#95a4c3;text-align:center;font-size:12px;line-height:1.8;margin:25px auto 35px}footer a{color:#adb9ff}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);color:white;background:#334274;border:1px solid #7c91c6;max-width:90%;padding:13px 18px;border-radius:12px;z-index:4;box-shadow:0 12px 38px #0006}
+.toast.error{background:#722c45;border-color:#ad5266}
+.busy{position:fixed;inset:0;background:#050811c9;display:grid;place-items:center;z-index:5}
+.busy>div{padding:35px;background:#1c2948;border:1px solid #506294;border-radius:20px;text-align:center}
+.spinner{width:40px;height:40px;border:4px solid #5967a3;border-top-color:#e4e9ff;border-radius:50%;animation:spin 1s linear infinite;margin:auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+dialog{width:min(440px,calc(100% - 28px));background:#18233a;color:white;border:1px solid #475577;border-radius:17px;padding:25px}dialog::backdrop{background:#000b}
+[hidden]{display:none!important}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.keypanel{display:block}.keyoptions{margin-top:19px}.panel{padding:19px}.hero{padding:35px 0 20px}}
+</style>
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand">🎙 ThaiVoice<b>Lab</b></div><div class="tag">🇹🇭 THAI VOICE AI · V1.1</div></header>
+<main>
+<section class="hero"><div class="tiny">ELEVENLABS · INSTANT VOICE CLONING</div><h1>สร้างเสียง AI <span>ในแบบของคุณ</span></h1><p>อัปโหลดเสียงที่คุณมีสิทธิ์ใช้งาน แล้วพิมพ์ข้อความภาษาไทยให้ AI พูดด้วยเสียงต้นแบบ ฟังตัวอย่างและดาวน์โหลด MP3 ได้ในเว็บเดียว</p><div class="pills"><span>① อัปโหลดเสียง</span><span>② โคลนเสียง</span><span>③ สร้าง MP3</span></div></section>
+<section class="panel keypanel">
+<div><h2>⚙️ เชื่อมต่อระบบ AI</h2><p class="sub">ใช้ ElevenLabs API Key ส่วนตัว ไม่ใส่ API Key ลงใน GitHub</p></div>
+<div class="keyoptions"><div class="keyrow"><input id="key" type="password" placeholder="ElevenLabs API Key" aria-label="ElevenLabs API Key" autocomplete="off"><button class="outline" id="showKey" type="button">แสดง</button></div><label class="check"><input id="rememberKey" type="checkbox"> จำคีย์ไว้ในเบราว์เซอร์เครื่องนี้ (ไม่แนะนำบนเครื่องสาธารณะ)</label></div>
+</section>
+<div class="grid">
+<section class="panel"><div class="step">ขั้นตอนที่ 1</div><h2>โคลนเสียงต้นแบบ</h2><p class="subtitle">แนะนำเสียงพูดชัดเจน 1–2 นาที มีผู้พูดคนเดียว</p>
+<form id="cloneForm">
+<label class="field" for="voiceName">ชื่อเสียงต้นแบบ</label><input id="voiceName" required maxlength="75" type="text" placeholder="เช่น เสียงของฉัน">
+<label class="field" for="voiceFile">อัปโหลดไฟล์เสียง</label><label class="upload"><div style="font-size:32px">⇧</div><strong id="sampleTitle">แตะเพื่อเลือกไฟล์เสียง</strong><small>MP3, WAV, M4A, OGG, WEBM, FLAC · สูงสุด 20 MB</small><input id="voiceFile" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,.flac" required></label>
+<audio class="audio" controls id="samplePreview" hidden></audio>
+<p class="hint">ระบบส่งไฟล์ไปยัง ElevenLabs เพื่อสร้าง Voice ID ไม่เก็บไฟล์เสียงไว้บนเซิร์ฟเวอร์ของเว็บไซต์</p>
+<label class="check"><input id="consent" type="checkbox" required> ฉันเป็นเจ้าของเสียงนี้หรือได้รับอนุญาตอย่างชัดเจนให้โคลนเสียง และจะไม่ใช้เพื่อแอบอ้างหรือหลอกลวง</label>
+<button id="cloneBtn" class="primary full">✦ โคลนเสียงด้วย AI</button>
+</form>
+<h3>เสียงที่บันทึกไว้ <span id="voiceCount" style="color:#9bb0db;font-size:12px">0 เสียง</span></h3><div id="voices"></div>
+</section>
+<section class="panel"><div class="step">ขั้นตอนที่ 2</div><h2>พิมพ์ให้ AI พูด</h2><p class="subtitle">เลือกรายการเสียงแล้วสร้างไฟล์เสียงภาษาไทย</p>
+<form id="speakForm"><label class="field" for="voiceSelect">เลือกเสียงต้นแบบ</label><select id="voiceSelect" required><option value="">— โปรดโคลนเสียงก่อน —</option></select>
+<button id="importBtn" class="mini" type="button">+ เพิ่ม Voice ID เดิมจาก ElevenLabs</button>
+<label class="field" for="scriptText">ข้อความที่ต้องการให้พูด</label><textarea id="scriptText" maxlength="2000" required placeholder="สวัสดีครับ วันนี้เรามีเรื่องราวดี ๆ มาเล่าให้ฟัง..."></textarea><div class="counter" id="counter">0 / 2,000</div>
+<div class="tip">✦ ใช้เครื่องหมายวรรคตอนและเว้นวรรคเพื่อให้จังหวะการพูดเป็นธรรมชาติ ความยาวสูงสุด 2,000 อักขระต่อครั้ง</div>
+<button id="speakBtn" class="primary full">▶ สร้างเสียงพูดภาษาไทย</button></form>
+<div class="placeholder" id="placeholder"><div>▁▂▅▇▅▂▁</div><strong>ไฟล์เสียงจะปรากฏตรงนี้</strong><p>เลือกเสียงและพิมพ์ข้อความเพื่อเริ่มสร้าง</p></div>
+<div class="output" id="output" hidden><strong>✓ สร้างเสียงสำเร็จ</strong><audio id="player" controls></audio><a id="download" class="action" download="thai-voice.mp3">⬇ ดาวน์โหลด MP3</a></div>
+</section>
+</div>
+</main>
+<footer>🔒 ใช้ HTTPS · คีย์อยู่ในเบราว์เซอร์ของคุณและถูกส่งผ่านเซิร์ฟเวอร์นี้ไปยัง ElevenLabs เฉพาะตอนใช้งาน<br><a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer">สร้าง ElevenLabs API Key</a> · โปรดใช้เสียงที่ได้รับอนุญาต</footer>
+</div>
+<div class="toast" id="toast" hidden role="status"></div><div class="busy" id="busy" hidden><div><div class="spinner"></div><p id="busyText">AI กำลังประมวลผล...</p></div></div>
+<dialog id="importDialog"><h2>เพิ่ม Voice ID เดิม</h2><form id="importForm"><label class="field" for="importName">ชื่อที่ต้องการแสดง</label><input type="text" maxlength="75" id="importName" required placeholder="เสียงโปรด"><label class="field" for="importId">Voice ID</label><input type="text" id="importId" required placeholder="ID จาก ElevenLabs"><div style="display:flex;gap:8px;margin-top:20px"><button type="button" class="outline" id="cancelImport">ยกเลิก</button><button class="primary">เพิ่มเสียง</button></div></form></dialog>
+</body></html>
