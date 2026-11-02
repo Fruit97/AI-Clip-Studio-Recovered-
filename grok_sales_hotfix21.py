@@ -8,4 +8,5 @@ if hashlib.sha256(raw).hexdigest()!=expected:
     raise RuntimeError("Prompt Studio source checksum mismatch")
 with zipfile.ZipFile(io.BytesIO(raw)) as archive:
     archive.extractall(Path(__file__).resolve().parent)
+runpy.run_path(str(Path(__file__).with_name("grok_prompt_upgrade_v32.py")),run_name="__main__")
 runpy.run_path(str(Path(__file__).with_name("server_v3.py")),run_name="__main__")
