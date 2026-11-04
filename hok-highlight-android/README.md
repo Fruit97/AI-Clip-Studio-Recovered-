@@ -1,13 +1,20 @@
-# HOK Highlight AI — Android APK (Xiaomi Pad 6)
+# HOK Highlight AI V2 (Xiaomi Pad 6)
 
-Native, on-device Honor of Kings highlight editor. Import a 1–3 GB video using Android's file picker without uploading to a server; scan sampled frames with bundled ML Kit OCR (best results for *English* kill banners); inspect and edit candidate kill timestamps; stitch segments from 3 seconds before to 3 seconds after each kill; export an H.264/AAC MP4 scaled to 720p and copy to the Movies/HOK Highlights gallery folder.
+**APK V2 is an offline, on-device highlight editor.** It uses a visual HUD banner heuristic in addition to OCR, scanning a sampled frame **every 400 ms**. This no longer requires English text to produce *candidate* kill moments. The app then exports H.264 MP4 highlights from 3 seconds before to 3 seconds after each selected event, including audio, 720p and high target bitrate.
 
-**Important limits:** This is OCR-assisted candidate detection, not a trained HOK kill-classification model. Thai kill notifications or some HOK HUD variants can be missed; add missing kills manually at the video seek position. The app does not guarantee that every detected banner is your own kill. Verify candidate markers before exporting. Video frame rate is retained from the source; 60 FPS is produced when source is 60 FPS, without fake interpolation. The encoder requests a 16 Mbps bitrate but device encoders may use a different bitrate. Large files require significant *free internal storage* and the user should keep the app in foreground during scanning/rendering.
+## What the detector can and cannot do
+- **Visual search:** locate top-center kill banner overlays, which are similar in Thai and English interfaces. False positives and missed kills are still possible, especially with custom HUDs, small overlays, portrait changes, unusual aspect ratios or varying game versions.
+- **Text search:** the bundled ML Kit recognizer is Latin-script/English OCR only; it **does not recognize Thai text**. See https://developers.google.com/ml-kit/vision/text-recognition/v2/languages
+- **Own vs. teammate kill:** the HUD often shows both; visual-only marks are **unverified candidates** and must be reviewed. This is not a pretrained HOK neural model, and we do **not** guarantee that all or only player kills are selected. To fix false positives, use the checkbox beside each candidate, or add missing times manually.
+- **Speed and battery:** frame scanning and OCR of 30–45 minute clips can be slow and warm up the tablet; leave the app open during processing.
+- **FPS:** source frame rate is preserved by Media3. A 60 FPS source normally exports at 60 FPS; this version does not synthesize true new 60 FPS frames from 30 FPS footage.
+- **Storage:** imports use Android document picker; no video uploading or root. 3 GB import size cap, 45-minute cap. Output uses local internal space and gallery MediaStore.
 
 ## Build
-In the project root, use Android Gradle Plugin 8.13.2 with Gradle 8.13 and JDK 17:
-`gradle assembleDebug testDebugUnitTest`
+JDK 17; Gradle 8.13; Android Gradle Plugin 8.13.2; compile SDK 36.
 
-GitHub Actions workflow: `.github/workflows/hok-highlight-apk.yml`. The signed debug APK is uploaded as a workflow artifact named `HOK-Highlight-AI-APK`. For private use; debug-signed builds are NOT suitable for Play Store release.
+`gradle -p hok-highlight-android testDebugUnitTest assembleDebug`
 
-No root, no Internet permission, no ACCESS_ALL_FILES permission needed. Media selection uses Storage Access Framework and outputs use MediaStore.
+Workflow `.github/workflows/hok-highlight-apk.yml` uploads a debug-signed APK artifact and publishes a stable GitHub Release.
+
+**Important upgrade note:** GitHub Actions' debug-signed APKs can be signed with different ephemeral keystores. If Android reports "app not installed" when upgrading V1 to V2, uninstall V1 first, then install V2. Keep the original videos safe in your gallery; uninstalling clears app-private output files.
