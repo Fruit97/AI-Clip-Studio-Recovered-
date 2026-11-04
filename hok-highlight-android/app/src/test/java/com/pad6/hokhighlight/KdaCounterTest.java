@@ -2,81 +2,129 @@ package com.pad6.hokhighlight;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class KdaCounterTest {
-  static KdaCounter.Observation score(int kills,int deaths,int assists) {
-    return new KdaCounter.Observation(kills,deaths,assists,.79f,.048f);
+  private static KdaCounter.Observation score(int k,int d,int a) {
+    return new KdaCounter.Observation(k,d,a,.67f,.052f);
   }
-  static List<KdaCounter.Kill> confirm(KdaCounter.Tracker tracker,long at,
-                                     int kills,int deaths,int assists) {
-    tracker.feed(at,score(kills,deaths,assists));
-    return tracker.feed(at+800,score(kills,deaths,assists));
+  private static List<KdaCounter.Kill> confirm(
+      KdaCounter.Tracker t,long at,int k,int d,int a) {
+    assertTrue(t.feed(at,score(k,d,a)).isEmpty());
+    assertTrue(t.feed(at+800,score(k,d,a)).isEmpty());
+    return t.feed(at+1600,score(k,d,a));
   }
-  @Test public void topRightKdaTripletExcludesTeamScore() {
-    List<KdaCounter.NumberBox> b=Arrays.asList(
-      new KdaCounter.NumberBox(13,.50f,.045f),
-      new KdaCounter.NumberBox(14,.58f,.045f),
-      new KdaCounter.NumberBox(7,.69f,.048f),
-      new KdaCounter.NumberBox(3,.77f,.048f),
-      new KdaCounter.NumberBox(0,.85f,.048f));
-    KdaCounter.Observation found=KdaCounter.parse(b);
-    assertNotNull(found);assertEquals(7,found.kills);
-    assertEquals(3,found.deaths);assertEquals(0,found.assists);
+
+  @Test public void recognizesPersonalKdaNearHeaderNotArbitraryRightmostNumbers() {
+    List<KdaCounter.NumberBox> boxes=Arrays.asList(
+      new KdaCounter.NumberBox(13,.38f,.048f), // team score
+      new KdaCounter.NumberBox(14,.45f,.048f), // opponent score
+      new KdaCounter.NumberBox(7,.60f,.052f),
+      new KdaCounter.NumberBox(3,.67f,.052f),
+      new KdaCounter.NumberBox(0,.74f,.052f),
+      new KdaCounter.NumberBox(30,.90f,.048f)); // FPS
+    KdaCounter.Observation obs=KdaCounter.parse(boxes);
+    assertNotNull(obs);
+    assertEquals(7,obs.kills);
+    assertEquals(3,obs.deaths);
+    assertEquals(0,obs.assists);
   }
-  @Test public void invalidOrUnstableOcrIsNotAShot() {
+
+  @Test public void noThreeCountersMustNotInventAKill() {
+    assertNull(KdaCounter.parse(Arrays.asList(
+      new KdaCounter.NumberBox(10,.42f,.06f),
+      new KdaCounter.NumberBox(8,.49f,.06f))));
+  }
+
+  @Test public void oneHeroKillOnlyWhenPersonalKIncreases() {
     KdaCounter.Tracker t=new KdaCounter.Tracker();
-    assertTrue(confirm(t,0,2,1,0).isEmpty());
-    assertTrue(t.feed(2000,score(9,1,0)).isEmpty());
-    assertTrue(t.feed(2800,score(2,1,0)).isEmpty());
-    assertTrue(t.feed(3600,score(2,1,0)).isEmpty());
-    assertEquals(1,confirm(t,4200,3,1,0).size());
+    assertTrue(confirm(t,0,2,0,1).isEmpty());
+    assertTrue(confirm(t,3000,2,0,1).isEmpty());
+    List<KdaCounter.Kill> got=confirm(t,6000,3,0,1);
+    assertEquals(1,got.size());
+    assertEquals(3,got.get(0).individualTotal);
   }
-  @Test public void jungleMonstersDoNotChangePersonalKda() {
+
+  @Test public void deathOnlyNeverProducesHighlight() {
     KdaCounter.Tracker t=new KdaCounter.Tracker();
-    assertTrue(confirm(t,0,2,1,0).isEmpty());
-    assertTrue(confirm(t,3000,2,1,0).isEmpty());
-    assertTrue(confirm(t,6000,2,1,0).isEmpty());
-    assertEquals(1,confirm(t,9000,3,1,0).size());
+    confirm(t,0,2,0,1);
+    assertTrue(confirm(t,3500,2,1,1).isEmpty());
+    assertEquals(1,t.deathsIgnored());
+    assertEquals(0,t.ambiguousEvents());
+    assertEquals(1,confirm(t,7000,3,1,1).size());
   }
-  @Test public void killsWithinSameSecondAreSeparateEvents() {
+
+  @Test public void deathAndKillInSameBlindIntervalAreNotAutomaticallyExported() {
+    KdaCounter.Tracker t=new KdaCounter.Tracker();
+    confirm(t,0,2,0,1);
+    assertTrue(confirm(t,5000,3,1,1).isEmpty());
+    assertEquals(1,t.ambiguousEvents());
+    assertEquals(1,t.deathsIgnored());
+    assertEquals(1,confirm(t,9000,4,1,1).size());
+  }
+
+  @Test public void monsterKillsAndAssistsDontMakeHighlights() {
+    KdaCounter.Tracker t=new KdaCounter.Tracker();
+    confirm(t,0,2,0,1);
+    assertTrue(confirm(t,2000,2,0,1).isEmpty());
+    assertTrue(confirm(t,4500,2,0,2).isEmpty());
+    assertTrue(confirm(t,7300,2,0,2).isEmpty());
+    assertEquals(1,confirm(t,11000,3,0,2).size());
+  }
+
+  @Test public void twoKillsCloseTogetherAreTwoShotsAndNotMerged() {
     KdaCounter.Tracker t=new KdaCounter.Tracker();
     confirm(t,0,0,0,0);
-    List<KdaCounter.Kill> kills=confirm(t,3000,2,0,0);
-    assertEquals(2,kills.size());
-    assertTrue(kills.get(0).atMs<kills.get(1).atMs);
-    assertEquals(1,kills.get(0).individualTotal);
-    assertEquals(2,kills.get(1).individualTotal);
+    List<KdaCounter.Kill> found=confirm(t,3600,2,0,0);
+    assertEquals(2,found.size());
+    assertTrue(found.get(0).atMs<found.get(1).atMs);
+    assertEquals(1,found.get(0).individualTotal);
+    assertEquals(2,found.get(1).individualTotal);
+    assertEquals(2,HighlightPlanner.calculate(
+      Arrays.asList(found.get(0).atMs,found.get(1).atMs),30000).size());
   }
-  @Test public void eightOrTenKillsYieldExactlyEightOrTenEvents() {
-    for(int target:new int[]{8,10}) {
+
+  @Test public void countsEightOrTenActualKillsWithoutHardcodedTargets() {
+    for(int n:new int[]{8,10,17}){
       KdaCounter.Tracker t=new KdaCounter.Tracker();
       confirm(t,0,0,0,0);
       int total=0;
-      for(int k=1;k<=target;k++)total+=confirm(t,k*5000L,k,k/6,k/3).size();
-      assertEquals(target,total);
+      for(int k=1;k<=n;k++)
+        total+=confirm(t,3000L*k,k,k/5,k/3).size();
+      // K and D in the same interval are ambiguous, so this setup should
+      // NOT claim every kill is confirmed. The user's safety rule wins.
+      assertEquals(n-n/5,total);
     }
   }
-  @Test public void increasedDeathsOrAssistsNeverAddKillHighlights() {
+
+  @Test public void countsEightOrTenPureKillsCorrectly() {
+    for(int n:new int[]{8,10,17}){
+      KdaCounter.Tracker t=new KdaCounter.Tracker();
+      confirm(t,0,0,0,0);
+      int total=0;
+      for(int k=1;k<=n;k++)
+        total+=confirm(t,3000L*k,k,0,k/3).size();
+      assertEquals(n,total);
+    }
+  }
+
+  @Test public void rejectsTemporaryOcrErrorAndWrongHudLocation() {
+    KdaCounter.Tracker t=new KdaCounter.Tracker();
+    confirm(t,0,3,1,2);
+    assertTrue(t.feed(2000,score(25,1,2)).isEmpty());
+    assertTrue(t.feed(2800,score(3,1,2)).isEmpty());
+    assertTrue(t.feed(4000,new KdaCounter.Observation(4,1,2,.86f,.09f)).isEmpty());
+    assertEquals(1,confirm(t,5200,4,1,2).size());
+  }
+
+  @Test public void rejectsDeathCounterReadAsKillWhenKdaShifts() {
     KdaCounter.Tracker t=new KdaCounter.Tracker();
     confirm(t,0,1,0,0);
-    assertTrue(confirm(t,2500,1,1,3).isEmpty());
-    assertTrue(confirm(t,5000,1,2,4).isEmpty());
-    assertEquals(1,confirm(t,8000,2,2,4).size());
-  }
-  @Test public void invalidScoreboardReadCannotCreateTenFakeKills() {
-    KdaCounter.Tracker t=new KdaCounter.Tracker();
-    confirm(t,0,1,0,0);
-    assertTrue(confirm(t,5000,20,0,0).isEmpty());
-    assertEquals(1,confirm(t,10000,2,0,0).size());
-  }
-  @Test public void missingKdaDoesNotCreateFakeKills() {
-    KdaCounter.Tracker t=new KdaCounter.Tracker();
-    confirm(t,0,4,1,2);
-    assertTrue(t.feed(2000,null).isEmpty());
-    assertTrue(t.feed(3000,null).isEmpty());
-    assertTrue(confirm(t,5000,4,1,2).isEmpty());
+    KdaCounter.Observation shifted=new KdaCounter.Observation(2,1,0,.76f,.06f);
+    assertTrue(t.feed(3000,shifted).isEmpty());
+    assertTrue(t.feed(3800,shifted).isEmpty());
+    assertTrue(t.feed(4600,shifted).isEmpty());
+    assertEquals(1,confirm(t,6400,2,0,0).size());
   }
 }
