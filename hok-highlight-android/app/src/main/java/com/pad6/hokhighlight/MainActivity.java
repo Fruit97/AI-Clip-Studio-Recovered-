@@ -136,7 +136,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V6",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V7",26,TEXT));
     root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -360,12 +360,11 @@ public class MainActivity extends Activity {
             if(pixels==null||pixels.length<w*h)pixels=new int[w*h];
             frame.getPixels(pixels,0,w,0,0,w,h);
             KillVisionV2.VisualSignal visual=KillVisionV2.analyze(pixels,w,h);
-            if(i%2==0) {
-              try {
-                KdaCounter.Observation current=readPersonalKda(frame,recognizer);
-                kdaKills.addAll(personalKda.feed(atMs,current));
-              }catch(Exception e){ocrErrors++;}
-            }
+            // 400ms personal-KDA sampling helps with rapid double/triple kills.
+            try {
+              KdaCounter.Observation current=readPersonalKda(frame,recognizer);
+              kdaKills.addAll(personalKda.feed(atMs,current));
+            }catch(Exception e){ocrErrors++;}
             KillVisionV2.TextSignal words=KillVisionV2.parseText("");
             boolean shouldBannerOcr=(visual.score>=.46||i%4==0) &&
                                      atMs-lastBannerOcrMs>=1150;
@@ -411,78 +410,32 @@ public class MainActivity extends Activity {
           KillVisionV2.Candidate tail=bannerTracker.finish(duration+1600L);
           if(tail!=null) banners.add(new KillMark(tail.timestampMs,tail.reason));
         }
-        // KDA deltas are decisive. Use banner timestamps only to improve timing.
-        // Never infer that a monster kill is a personal hero elimination.
+        // V7: personal K/D/A plus HERO-specific text are separate evidence
+        // sources. No generic banner, neutral boss, or death event can silently
+        // become a selected player kill.
+        List<KillReconcilerV7.Banner> observations=new ArrayList<>();
+        for(KillMark banner:banners)
+          observations.add(new KillReconcilerV7.Banner(banner.when,banner.reason));
+        List<KillReconcilerV7.Decision> decisions=
+            KillReconcilerV7.reconcile(kdaKills,observations,personalKda.deathMoments());
         List<KillMark> output=new ArrayList<>();
-        if(!kdaKills.isEmpty()){
-          boolean[] used=new boolean[banners.size()];
-          for(KdaCounter.Kill kill:kdaKills) {
-            long when=kill.atMs;
-            int nearest=-1;
-            long gap=850L;
-            for(int j=0;j<banners.size();j++){
-              if(used[j])continue;
-              // Never use a generic shape-only monster banner to retime a
-              // verified player KDA increase.
-              String reason=banners.get(j).reason;
-              if(!reason.startsWith("OCR พบคิล"))continue;
-              long distance=Math.abs(banners.get(j).when-when);
-              if(distance<gap){nearest=j;gap=distance;}
-            }
-            if(nearest>=0){
-              when=banners.get(nearest).when;
-              used[nearest]=true;
-            }
-            KillMark m=new KillMark(when,"KDA คิลส่วนตัวเพิ่ม #"+
-                kill.individualTotal+(kill.inferred?" (คิลติดกัน)":""));
-            // Reject clips that would show the player's own death during
-            // the 3s pre/post-roll window, including deaths AFTER a kill.
-            for(Long deathAt:personalKda.deathMoments()){
-              if(Math.abs(deathAt-when)<=3400L){
-                m.enabled=false;
-                m.reason="ยังไม่ยืนยัน: มีการตายใกล้คิล #"+
-                   kill.individualTotal+" (ไม่ได้เลือกตัด)";
-                break;
-              }
-            }
-            output.add(m);
-          }
-        }
-
-        // If a death and an increase in K were detected in the same OCR
-        // interval, DO NOT automatically export the interval. Leave it as a
-        // disabled review suggestion rather than creating a death highlight.
-        for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
-          KillMark mark=new KillMark(uncertain.atMs,
-             "ยังไม่ยืนยัน: คิล/ตายเกิดใกล้กัน KDA #"+
-                uncertain.individualTotal+" (ปิดเลือกไว้)");
-          mark.enabled=false;
+        for(KillReconcilerV7.Decision decision:decisions){
+          KillMark mark=new KillMark(decision.atMs,
+              "V7 "+decision.reason);
+          mark.enabled=decision.selected;
           output.add(mark);
         }
-
-        // Retain possible missing hero kills as UNCHECKED items for review,
-        // without selecting monster kills, teammate kills or player deaths.
-        for(KillMark guess:banners){
-          boolean deathNearby=false;
-          for(Long diedAt:personalKda.deathMoments())
-            if(Math.abs(guess.when-diedAt)<2200L){deathNearby=true;break;}
-          if(deathNearby)continue;
-          boolean alreadyCounted=false;
-          for(KillMark selected:output)
-            if(selected.enabled && Math.abs(selected.when-guess.when)<1250L){
-                alreadyCounted=true;break;
-            }
-          if(!alreadyCounted){
-            guess.enabled=false;
-            guess.reason="ยังไม่ยืนยัน: แบนเนอร์ภาพอาจเป็นคิล/มอนสเตอร์/การตาย • "+
-                         guess.reason;
-            output.add(guess);
-          }
+        for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
+          KillMark mark=new KillMark(uncertain.atMs,
+             "V7 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+                uncertain.individualTotal);
+          mark.enabled=false;
+          output.add(mark);
         }
         final int imagesFailed=frameErrors,ocrFailed=ocrErrors,framesDone=scanned;
         int approved=0;
         for(KillMark item:output)
-           if(item.enabled && item.reason.startsWith("KDA ")) approved++;
+           if(item.enabled)approved++;
         final int verified=approved,suggested=banners.size();
         final int deathOnly=personalKda.deathsIgnored();
         final int ambiguous=personalKda.ambiguousEvents();
@@ -498,7 +451,8 @@ public class MainActivity extends Activity {
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
           // Preserve manually-added marks, replace previous automatic proposals.
-          marks.removeIf(mark->mark.reason.startsWith("KDA ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V7 ") ||
+              mark.reason.startsWith("KDA ") ||
               mark.reason.startsWith("AI ") ||
               mark.reason.startsWith("ภาพแบนเนอร์") ||
               mark.reason.startsWith("ยังไม่ยืนยัน"));
@@ -509,10 +463,10 @@ public class MainActivity extends Activity {
           renderMarks();
           String summary;
           if(verified>0)
-            summary="เลือกเฉพาะคิลฮีโร่ "+verified+
-                " ครั้ง • ช็อต "+verified+" • "+kdaState+
-                " • ไม่เลือกคิลใกล้การตาย "+deathFiltered+
-                " • D เพิ่ม "+deathOnly+" ครั้ง";
+            summary="คิลที่มีหลักฐานสองทางหรือ KDA ชัดเจน "+verified+
+                " จุด • "+kdaState+
+                " • คิลยังไม่ยืนยัน "+(output.size()-verified)+
+                " จุด • D เพิ่ม "+deathOnly+" ครั้ง";
           else if(calibrated)
             summary="อ่าน KDA ได้ แต่ยังไม่พบ K เพิ่มโดยไม่มี D เพิ่ม • "+kdaState+
                 " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง"+
