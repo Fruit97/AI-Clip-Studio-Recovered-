@@ -3,7 +3,7 @@ plugins {
 }
 android {
     namespace 'com.pad6.hokhighlight'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId 'com.pad6.hokhighlight'
         minSdk 29
