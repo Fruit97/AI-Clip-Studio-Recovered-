@@ -47,6 +47,31 @@ public class KdaCounterTest {
     for(int i=0;i<3;i++)second=tracker.feed(30000L+i*400L,two);
     assertEquals(1,second.size());assertEquals(2,second.get(0).individualTotal);
   }
+  @Test public void movedHudStillDetectsSwordZeroToOneToTen() {
+    // Other phone aspect ratio: icon-number triplet shifted left and down.
+    KdaCounter.Observation initial=KdaCounter.parse(Arrays.asList(
+      new KdaCounter.NumberBox(0,.702f,.124f),
+      new KdaCounter.NumberBox(0,.751f,.124f),
+      new KdaCounter.NumberBox(0,.800f,.124f)));
+    assertNotNull(initial);assertEquals(0,initial.kills);
+    KdaCounter.Tracker t=new KdaCounter.Tracker();
+    for(int i=0;i<5;i++)assertTrue(t.feed(i*400L,initial).isEmpty());
+    int total=0;
+    for(int k=1;k<=10;k++){
+      KdaCounter.Observation obs=KdaCounter.parse(Arrays.asList(
+        new KdaCounter.NumberBox(k,.702f,.124f),
+        new KdaCounter.NumberBox(0,.751f,.124f),
+        new KdaCounter.NumberBox(0,.800f,.124f)));
+      List<KdaCounter.Kill> found=java.util.Collections.emptyList();
+      for(int j=0;j<3;j++)found=t.feed(5000L*k+j*400L,obs);
+      assertEquals(1,found.size());
+      assertTrue(found.get(0).trustedHud);
+      assertEquals(k,found.get(0).individualTotal);
+      total+=found.size();
+    }
+    assertEquals(10,total);
+  }
+
   @Test public void scoreboardDigitsAreNotPersonalKda() {
     assertNull(KdaCounter.parse(Arrays.asList(
       new KdaCounter.NumberBox(5,.56f,.05f),

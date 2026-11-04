@@ -24,6 +24,15 @@ public final class KdaHudOcr {
         }
     }
 
+    private static int digit(String input){
+        if(input==null)return -1;
+        String t=input.trim();
+        // ML Kit often reads the game's isolated white zero as Latin O.
+        if(t.equalsIgnoreCase("o") || t.equals("〇") || t.equals("○"))t="0";
+        if(t.equals("I") || t.equals("l"))t="1";
+        return t.matches("[0-9]{1,2}")?Integer.parseInt(t):-1;
+    }
+
     public static KdaCounter.Observation parse(List<Line> lines){
         if(lines==null)return null;
         KdaCounter.Observation best=null;
@@ -32,27 +41,32 @@ public final class KdaHudOcr {
         for(Line line:lines) {
             if(line==null||line.text==null)continue;
             // KDA expected in the upper-right HUD; avoid skill cooldowns and chat.
-            if(line.x<.48f || line.x>.97f || line.y<0 || line.y>.15f)continue;
+            if(line.x<.45f || line.x>.98f || line.y<0 || line.y>.195f)continue;
             // In normal HOK matches the KDA may render as three separate
             // digits under small hero icons, WITHOUT / characters. V5 could
             // never read this UI. Treat those as provisional until the
             // temporal tracker calibrates the stable HUD location.
             String only=line.text.trim();
-            if(only.matches("[0-9]{1,2}")){
-                looseDigits.add(new KdaCounter.NumberBox(
-                    Integer.parseInt(only),line.x,line.y));
-            } else if(only.matches("[0-9]{1,2}\\s+[0-9]{1,2}\\s+[0-9]{1,2}")){
+            int single=digit(only);
+            if(single>=0){
+                looseDigits.add(new KdaCounter.NumberBox(single,line.x,line.y));
+            } else {
+                // Some game versions render 0 0 0 as one OCR line.
                 String[] parts=only.split("\\s+");
-                for(int n=0;n<3;n++)
-                    looseDigits.add(new KdaCounter.NumberBox(
-                        Integer.parseInt(parts[n]),line.x+(n-1)*.05f,line.y));
+                if(parts.length==3){
+                    int a=digit(parts[0]),b=digit(parts[1]),c=digit(parts[2]);
+                    if(a>=0 && b>=0 && c>=0)
+                        for(int n=0;n<3;n++)
+                            looseDigits.add(new KdaCounter.NumberBox(
+                                n==0?a:n==1?b:c,line.x+(n-1)*.04f,line.y));
+                }
             }
             Matcher match=TRIPLET.matcher(line.text);
             while(match.find()){
                 int k=Integer.parseInt(match.group(1));
                 int d=Integer.parseInt(match.group(2));
                 int a=Integer.parseInt(match.group(3));
-                if(k>45||d>45||a>60)continue;
+                if(k>99||d>99||a>99)continue;
                 // Don't select team-score digits / left side or minimap rows.
                 double score=-Math.abs(line.x-.755f)*2.0-
                               Math.abs(line.y-.065f)*2.0;

@@ -79,6 +79,16 @@ public class KdaHudOcrTest {
     assertEquals(1,kills.size());
   }
 
+  @Test public void zeroReadAsLetterOAndShiftedHudAreSupported() {
+    KdaCounter.Observation o=KdaHudOcr.parse(Arrays.asList(
+       new KdaHudOcr.Line("O",.702f,.124f),
+       new KdaHudOcr.Line("0",.751f,.124f),
+       new KdaHudOcr.Line("0",.800f,.124f),
+       new KdaHudOcr.Line("FPS 90",.60f,.03f)));
+    assertNotNull(o);assertEquals(0,o.kills);
+    assertEquals(0,o.deaths);assertEquals(0,o.assists);
+  }
+
   @Test public void isolatedLooseDigitsCannotTriggerUncalibratedKills() {
     KdaCounter.Observation weak=KdaCounter.parse(Arrays.asList(
       new KdaCounter.NumberBox(3,.829f,.052f),

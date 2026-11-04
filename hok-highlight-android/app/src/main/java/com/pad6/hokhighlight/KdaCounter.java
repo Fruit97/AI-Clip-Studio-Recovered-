@@ -48,15 +48,16 @@ public final class KdaCounter {
      * Do not pick arbitrary "rightmost 3 numbers" (V5 bug):
      * game clock, gold and team scores are nearby.
      *
-     * This layout prior may fail when a user customizes HUD; such scans
-     * must remain unverified and cannot be silently treated as kills.
+     * Coordinates vary between device aspect ratios, recording crops and
+     * UI scale. Three evenly spaced digits must calibrate over time before
+     * any sword/K increase is accepted. A missing digit is NOT a kill.
      */
     public static Observation parse(List<NumberBox> raw){
         if(raw==null||raw.size()<3)return null;
         List<NumberBox> numbers=new ArrayList<>();
         for(NumberBox n:raw){
-            if(n.value>=0 && n.value<=45 && n.x>=.765f && n.x<=.955f &&
-               n.y>=.012f && n.y<=.115f)numbers.add(n);
+            if(n.value>=0 && n.value<=99 && n.x>=.48f && n.x<=.97f &&
+               n.y>=.025f && n.y<=.19f)numbers.add(n);
         }
         numbers.sort(Comparator.comparingDouble(n->n.x));
         Observation best=null;
@@ -75,19 +76,15 @@ public final class KdaCounter {
                     if(Math.max(d1,d2)/Math.min(d1,d2)>1.8)continue;
                     double centerX=(a.x+c.x)/2.0;
                     double centerY=(a.y+b.y+c.y)/3.0;
-                    if(centerX<.80||centerX>.925||centerY>.11)continue;
-                    // Check sword/K, skull/D and fist/A NUMBER columns
-                    // captured in the user's reference screenshot. Reject
-                    // generic FPS, clock and team-score triplets.
-                    if(Math.abs(a.x-.829f)>.025f ||
-                       Math.abs(b.x-.867f)>.023f ||
-                       Math.abs(c.x-.905f)>.025f ||
-                       centerY<.025 || centerY>.09) continue;
-                    double score=-(Math.abs(a.x-.829)*2.5 +
-                         Math.abs(b.x-.867)*2.5 +
-                         Math.abs(c.x-.905)*2.5 +
-                         Math.abs(centerY-.055)*3.0 +
-                         Math.abs(d1-d2)*10.0);
+                    if(centerX<.57||centerX>.94||centerY<.03||centerY>.185)continue;
+                    // User footage/screen ratios can shift this whole row.
+                    // Sword, skull and fist digits still form an evenly spaced
+                    // three-number sequence on a common y line. Reject
+                    // clocks/FPS (non-numeric), long gaps, and misaligned rows.
+                    double score=-(Math.abs(centerX-.867)*1.2 +
+                         Math.abs(centerY-.095)*1.1 +
+                         Math.abs(d1-d2)*12.0 +
+                         Math.max(0,.035-Math.min(d1,d2))*1.5);
                     if(score>bestScore){
                         bestScore=score;
                         best=new Observation(a.value,b.value,c.value,
@@ -187,18 +184,17 @@ public final class KdaCounter {
                 maxObservedKills=observed.kills;
                 return Collections.emptyList();
             }
-            // Trust the entire interval only when BOTH snapshots identify
-            // an explicit personal K/D/A readout, not inferred HUD numerals.
-            // Real HOK video 24218.mp4 shows separate personal K/D/A
-            // digits near x=.829/.867/.905 without slash separators.
-            // Trust only the right-side HUD after five repeat baseline reads
-            // and a second three-read snapshot at the same location.
-            boolean rightHud=baseline.x>=.835f && baseline.x<=.925f &&
-                observed.x>=.835f && observed.x<=.925f &&
-                baseline.y>=.025f && baseline.y<=.090f &&
-                observed.y>=.025f && observed.y<=.090f &&
+            // The player's HUD is not guaranteed to be at one pixel-perfect
+            // x/y on every recording. Trust a repeated numeric triplet only
+            // after calibration (five identical OCR reads) and a stable
+            // three-read new snapshot at the SAME location. The fixed x=.867
+            // trust gate in V7.5 caused genuine K changes to be left unchecked.
+            boolean calibratedRow=baseline.sameLocation(observed) &&
+                baseline.x>=.57f && baseline.x<=.94f &&
+                baseline.y>=.03f && baseline.y<=.185f &&
                 trustedSnapshots>=2;
-            boolean verifiedHud=(baseline.trusted && observed.trusted) || rightHud;
+            boolean verifiedHud=(baseline.trusted && observed.trusted) ||
+                calibratedRow;
             int deltaK=observed.kills-baseline.kills;
             int deltaD=observed.deaths-baseline.deaths;
             int deltaA=observed.assists-baseline.assists;

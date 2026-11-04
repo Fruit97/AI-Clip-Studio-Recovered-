@@ -1,6 +1,15 @@
-# HOK Highlight AI V7.5 — sword-number-only trigger
+# HOK Highlight AI V7.6 — continuous sword-counter detection
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.6 continuous K-counter reliability fixes (November 4, 2026)
+- User screenshot confirms V7.5 scan finished without finding a verified K even though sword/K is visible in the gameplay.
+- Removed the overly strict hard-coded x/y anchor which failed when HUD shifts with screen ratio, capture crop or game UI layout. Three evenly spaced and repeated sword/skull/fist digit values may now calibrate within the upper HUD band, and the counter's location must remain stable for the new reading.
+- Source frames are now decoded for OCR up to 1920x1080 instead of 1280x720 to preserve the small K digits. OCR crop includes 27% of the top of the frame instead of 20%.
+- ML Kit sometimes reads the isolated digit 0 as O or ○; normalize such OCR output for numeric HUD parsing.
+- Keep scanning counter increments 0->1->2->3->...->10, regardless of total kills, while D/A-only increases never make a cut. Fixed detection is still heuristic and depends on OCR reading the actual numeric HUD.
+- Report the number of frames where K/D/A OCR was parsed, so an empty result can be diagnosed rather than incorrectly claiming zero kills.
+- The 5-second pre-kill + 3-second post-kill rule remains unchanged. The actual source footage on Xiaomi Pad 6 is not yet validated end-to-end.
 
 ## V7.5 sword-counter-only correction (November 4, 2026)
 - The user's two reference images show sword = 0 (no own kills yet), then sword = 1 (one own hero kill). The skull and fist counters are D (own deaths) and A (assists). They must NOT trigger highlights.
