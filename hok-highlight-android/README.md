@@ -5,7 +5,7 @@ Native, on-device Honor of Kings highlight editor. Import a 1–3 GB video using
 **Important limits:** This is OCR-assisted candidate detection, not a trained HOK kill-classification model. Thai kill notifications or some HOK HUD variants can be missed; add missing kills manually at the video seek position. The app does not guarantee that every detected banner is your own kill. Verify candidate markers before exporting. Video frame rate is retained from the source; 60 FPS is produced when source is 60 FPS, without fake interpolation. The encoder requests a 16 Mbps bitrate but device encoders may use a different bitrate. Large files require significant *free internal storage* and the user should keep the app in foreground during scanning/rendering.
 
 ## Build
-In the project root, use Android Gradle Plugin 8.7.3 with Gradle 8.10.2 and JDK 17:
+In the project root, use Android Gradle Plugin 8.13.2 with Gradle 8.13 and JDK 17:
 `gradle assembleDebug testDebugUnitTest`
 
 GitHub Actions workflow: `.github/workflows/hok-highlight-apk.yml`. The signed debug APK is uploaded as a workflow artifact named `HOK-Highlight-AI-APK`. For private use; debug-signed builds are NOT suitable for Play Store release.
