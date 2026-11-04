@@ -84,7 +84,7 @@ public final class KdaCounter {
                     if(score>bestScore){
                         bestScore=score;
                         best=new Observation(a.value,b.value,c.value,
-                                (float)centerX,(float)centerY,true);
+                                (float)centerX,(float)centerY,false);
                     }
                 }
             }
@@ -135,7 +135,13 @@ public final class KdaCounter {
         public List<Kill> feed(long atMs,Observation observed){
             samples++;
             if(atMs<0||observed==null)return Collections.emptyList();
-            if(!observed.trusted){rejectedUntrusted++;return Collections.emptyList();}
+            // Separate HUD numbers (without slash) are provisional.
+            // Calibrate their location over 5 consistent reads; an arbitrary
+            // one-off group of digits must never create a kill.
+            if(!observed.trusted && baseline!=null && baseline.trusted) {
+                rejectedUntrusted++;
+                return Collections.emptyList();
+            }
             if(baseline!=null && !baseline.sameLocation(observed)){
                 // If KDA is occluded, don't accidentally track nearby team score.
                 pending=null;stable=0;
@@ -157,7 +163,8 @@ public final class KdaCounter {
                 return Collections.emptyList();
             }
             stable++;
-            if(stable<3)return Collections.emptyList();
+            int required=(baseline==null && !observed.trusted)?5:3;
+            if(stable<required)return Collections.emptyList();
             trustedSnapshots++;
             lastValidAt=atMs;
             pending=null;stable=0;
