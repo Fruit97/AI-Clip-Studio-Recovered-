@@ -238,7 +238,7 @@ public class MainActivity extends Activity {
       renderMarks();progress.setProgress(0);
       setStatus("นำเข้าวิดีโอสำเร็จ พร้อมสแกนคิล");
     } catch(Exception e) {setStatus("อ่านวิดีโอไม่ได้: "+e.getMessage());}
-    finally {retriever.release();}
+    finally {try {retriever.release();} catch(Exception ignored) {}}
     refreshButtons();
   }
 
