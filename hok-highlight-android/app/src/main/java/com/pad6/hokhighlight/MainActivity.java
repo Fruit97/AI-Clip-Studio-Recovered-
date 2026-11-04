@@ -31,7 +31,7 @@ import android.widget.TextView;
 import android.widget.VideoView;
 import android.widget.MediaController;
 
-import androidx.media3.common.Effects;
+import androidx.media3.transformer.Effects;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.Presentation;
@@ -114,7 +114,7 @@ public class MainActivity extends Activity {
   }
 
   private Button button(String text, LinearLayout row, View.OnClickListener action) {
-    Button b=new Button(this); b.setText(text); b.setTextAllCaps(false);
+    Button b=new Button(this); b.setText(text); b.setAllCaps(false);
     row.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));
     b.setOnClickListener(action); return b;
   }
