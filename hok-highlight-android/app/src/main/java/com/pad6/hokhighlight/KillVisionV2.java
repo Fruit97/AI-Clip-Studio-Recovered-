@@ -45,7 +45,7 @@ public final class KillVisionV2 {
           "you defeated", "you have killed", "you killed",
           "คุณสังหาร", "คุณกำจัด", "คุณได้สังหาร"
         };
-        for (String s:own) if (text.contains(s)) return new TextSignal(Category.OWN,s);
+        for (String s:own) if (text.contains(s)) return new TextSignal(Category.OWN, text.length()>140?text.substring(0,140):text);
         String[] maybe = {
           "first blood", "double kill", "doublekill", "triple kill", "triplekill", "quadra kill", "quadrakill",
           "quad kill", "penta kill", "pentakill", "godlike", "legendary",
