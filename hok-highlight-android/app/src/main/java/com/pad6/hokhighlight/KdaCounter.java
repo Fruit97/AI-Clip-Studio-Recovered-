@@ -25,9 +25,13 @@ public final class KdaCounter {
     public static final class Observation {
         public final int kills,deaths,assists;
         public final float x,y;
+        public final boolean trusted;
         public Observation(int kills,int deaths,int assists,float x,float y){
+            this(kills,deaths,assists,x,y,true);
+        }
+        public Observation(int kills,int deaths,int assists,float x,float y,boolean trusted){
             this.kills=kills;this.deaths=deaths;this.assists=assists;
-            this.x=x;this.y=y;
+            this.x=x;this.y=y;this.trusted=trusted;
         }
         public boolean sameValues(Observation other){
             return other!=null && kills==other.kills &&
@@ -80,7 +84,7 @@ public final class KdaCounter {
                     if(score>bestScore){
                         bestScore=score;
                         best=new Observation(a.value,b.value,c.value,
-                                (float)centerX,(float)centerY);
+                                (float)centerX,(float)centerY,false);
                     }
                 }
             }
@@ -102,6 +106,7 @@ public final class KdaCounter {
         private long pendingAt, lastValidAt=-1L;
         private int stable, samples, trustedSnapshots, deathsIgnored, ambiguous;
         private int maxObservedKills=-1;
+        private int rejectedUntrusted=0;
         private final List<Kill> ambiguousCandidates=new ArrayList<>();
 
         public boolean isCalibrated(){return baseline!=null;}
@@ -113,6 +118,7 @@ public final class KdaCounter {
         public int samples(){return samples;}
         public int deathsIgnored(){return deathsIgnored;}
         public int ambiguousEvents(){return ambiguous;}
+        public int rejectedUntrusted(){return rejectedUntrusted;}
         public List<Kill> drainAmbiguous(){
             List<Kill> copy=new ArrayList<>(ambiguousCandidates);
             ambiguousCandidates.clear();
@@ -127,6 +133,7 @@ public final class KdaCounter {
         public List<Kill> feed(long atMs,Observation observed){
             samples++;
             if(atMs<0||observed==null)return Collections.emptyList();
+            if(!observed.trusted){rejectedUntrusted++;return Collections.emptyList();}
             if(baseline!=null && !baseline.sameLocation(observed)){
                 // If KDA is occluded, don't accidentally track nearby team score.
                 pending=null;stable=0;
