@@ -133,7 +133,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V2",26,TEXT));
     root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -153,10 +153,10 @@ public class MainActivity extends Activity {
       return true;
     });
 
-    root.addView(label("1. ตรวจหาจังหวะคิล (ช่วยค้นหา ไม่รับประกันครบทุกคิล)",18,TEXT));
-    root.addView(label("OCR บนอุปกรณ์อ่านแถบคิลภาษาอังกฤษได้บางรูปแบบ หากเกมใช้ภาษาไทยให้เพิ่มเวลาคิลเอง และตรวจรายการก่อนส่งออก",13,MUTED));
+    root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
+    root.addView(label("V2 ตรวจทุก 0.4 วินาที ทั้งแถบภาพและ OCR ภาษาอังกฤษ • คิลภาษาไทยใช้ภาพช่วยค้นหา (ไม่ใช่อ่านตัวอักษรไทย) • ผลเป็นจุดต้องตรวจว่าเป็นคิลของเรา",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI สแกนหาคิล",scanRow,v->scanForKills());
+    scanButton=button("AI ค้นหาคิล V2",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -186,7 +186,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: แอปต้องเปิดหน้าจอไว้ระหว่าง AI สแกนและเรนเดอร์ • ต้องมีพื้นที่ว่างสำหรับไฟล์ผลลัพธ์ • เวอร์ชันนี้ไม่ได้ฝึกโมเดลเฉพาะ HUD ภาษาไทย",13,MUTED));
+    root.addView(label("หมายเหตุ: V2 คือระบบภาพ + OCR ที่เสนอจุดคิล ไม่ใช่โมเดลที่ฝึกจากคลิป HOK จริง • ยังแยกคิลของเพื่อนไม่ได้ 100% • เปิดหน้าจอไว้ตลอดการสแกนและเรนเดอร์",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -284,77 +284,122 @@ public class MainActivity extends Activity {
     refreshButtons();
   }
 
-  private static String classifyKillText(String text) {
-    String t=text.toLowerCase(Locale.US).replaceAll("\\s+"," ").trim();
-    // Do not count ordinary hero-death / generic defeat messages as player kills.
-    String[] keys={"you have slain","you've slain","you defeated","double kill","triple kill","quadra kill","penta kill","pentakill","legendary","killing spree","unstoppable"};
-    for(String key:keys) if(t.contains(key)) return key;
-    return null;
-  }
-
+  /**
+   * V2: sample 2.5 frames/sec to find visual HUD kill-strip cues,
+   * then use OCR alongside visual recognition.
+   * English can have stronger text evidence; Thai is *visual candidate only* because
+   * bundled ML Kit Latin OCR does not support Thai script.
+   */
   private void scanForKills() {
     if(busy || videoUri==null)return;
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    progress.setProgress(0);setStatus("กำลังสแกนแถบคิลจากภาพเกม…");
-    Uri uri=videoUri; long duration=durationMs;
+    progress.setProgress(0);
+    setStatus("V2 เริ่มค้นหาคิลด้วยภาพแบนเนอร์ + OCR (ทุก 0.4 วินาที)…");
+    final Uri uri=videoUri;
+    final long duration=durationMs;
     worker.execute(()->{
-      MediaMetadataRetriever m=new MediaMetadataRetriever();
+      MediaMetadataRetriever retriever=new MediaMetadataRetriever();
       TextRecognizer recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-      List<KillMark> results=new ArrayList<>();
+      KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
+      List<KillMark> detected=new ArrayList<>();
+      int frameErrors=0;
+      int ocrErrors=0;
+      int scanned=0;
       try {
-        m.setDataSource(this,uri);
-        String activeKey=null;
-        long lastMark=-999999L;
-        int total=(int)Math.ceil(duration/1000.0);
-        for(int i=0;i<total && !stopScan.get();i++) {
-          long atMs=i*1000L;
-          Bitmap bitmap=m.getScaledFrameAtTime(atMs*1000L,
-                MediaMetadataRetriever.OPTION_CLOSEST,960,540);
-          if(bitmap==null)continue;
-          Bitmap cropped=null;
+        retriever.setDataSource(this,uri);
+        final int step=KillVisionV2.SAMPLE_INTERVAL_MS;
+        final long count=Math.max(1,(duration+step-1)/step);
+        int[] pixels=null;
+        long lastOcrMs=-10000;
+        for(long i=0;i<count && !stopScan.get();i++){
+          long atMs=Math.min(duration-1,i*step);
+          Bitmap frame=null;
+          Bitmap topCrop=null;
           try {
-            int x=(int)(bitmap.getWidth()*0.10);
-            int width=(int)(bitmap.getWidth()*0.80);
-            int height=(int)(bitmap.getHeight()*0.42);
-            cropped=Bitmap.createBitmap(bitmap,x,0,width,height);
-            String key=classifyKillText(Tasks.await(recognizer.process(InputImage.fromBitmap(cropped,0))).getText());
-            if(key==null) activeKey=null;
-            else if((!key.equals(activeKey)||atMs-lastMark>4000L) && atMs-lastMark>=1100L){
-              results.add(new KillMark(atMs,"AI พบ: "+key));
-              lastMark=atMs;
-              activeKey=key;
+            frame=retriever.getScaledFrameAtTime(atMs*1000L,
+                  MediaMetadataRetriever.OPTION_CLOSEST,960,540);
+            if(frame==null) {frameErrors++;continue;}
+            int width=frame.getWidth(),height=frame.getHeight();
+            if(pixels==null||pixels.length<width*height) pixels=new int[width*height];
+            frame.getPixels(pixels,0,width,0,0,width,height);
+            KillVisionV2.VisualSignal vision=KillVisionV2.analyze(pixels,width,height);
+            boolean shouldOcr=(i%3==0 || vision.score>=.47) &&
+                              atMs-lastOcrMs>=700;
+            KillVisionV2.TextSignal text=KillVisionV2.parseText("");
+            if(shouldOcr){
+              lastOcrMs=atMs;
+              int x=(int)(width*.10);
+              int y=(int)(height*.055);
+              int cw=Math.max(1,(int)(width*.80));
+              int ch=Math.max(1,(int)(height*.32));
+              cw=Math.min(cw,width-x);ch=Math.min(ch,height-y);
+              topCrop=Bitmap.createBitmap(frame,x,y,cw,ch);
+              try {
+                String words=Tasks.await(recognizer.process(
+                     InputImage.fromBitmap(topCrop,0))).getText();
+                text=KillVisionV2.parseText(words);
+              }catch(Exception ocrFailure){ocrErrors++;}
             }
-          } catch(Exception imageError) { /* invalid or unrecognized frame: keep scanning */ }
-          finally {if(cropped!=null)cropped.recycle();bitmap.recycle();}
-          if(i%5==0){
-            final int p=(int)((i+1)*100.0/Math.max(1,total));
-            final int second=i;
+            KillVisionV2.Candidate candidate=tracker.feed(atMs,vision,text);
+            if(candidate!=null) {
+              boolean duplicate=false;
+              for(KillMark existing:detected)
+                if(Math.abs(existing.when-candidate.timestampMs)<1500L){duplicate=true;break;}
+              if(!duplicate)detected.add(new KillMark(candidate.timestampMs,
+                   candidate.reason));
+            }
+            scanned++;
+          }catch(Exception frameFailure){frameErrors++;}
+          finally {
+            if(topCrop!=null)topCrop.recycle();
+            if(frame!=null)frame.recycle();
+          }
+          if(i%5==0 || i==count-1){
+            final int percent=(int)Math.min(100,100*(i+1)/count);
+            final long second=atMs;
+            final int found=detected.size();
             main.post(()->{
-              progress.setProgress(p);
-              setStatus("สแกน "+p+"% • ที่ "+HighlightPlanner.format(second*1000L)+
-                " / "+HighlightPlanner.format(duration)+" • พบ "+results.size()+" จุด");
+              if(!scanning)return;
+              progress.setProgress(percent);
+              setStatus("สแกน "+percent+"% • "+HighlightPlanner.format(second)+
+                 " / "+HighlightPlanner.format(duration)+
+                 " • พบจุดที่อาจเป็นคิล "+found+" จุด");
             });
           }
         }
         final boolean cancelled=stopScan.get();
+        final int badFrames=frameErrors, badOcr=ocrErrors;
+        final int goodFrames=scanned;
         main.post(()->{
-          for(KillMark found:results) {
+          for(KillMark hit:detected) {
             boolean duplicate=false;
-            for(KillMark existing:marks) if(Math.abs(existing.when-found.when)<1100) {duplicate=true;break;}
-            if(!duplicate) marks.add(found);
+            for(KillMark old:marks)
+              if(Math.abs(old.when-hit.when)<1500L){duplicate=true;break;}
+            if(!duplicate) marks.add(hit);
           }
-          scanning=false;busy=false;getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+          scanning=false;busy=false;
+          getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+          progress.setProgress(cancelled?progress.getProgress():100);
           renderMarks();
-          setStatus(cancelled?"ยกเลิกสแกน • เก็บผลที่พบแล้ว "+results.size()+" จุด":
-             "สแกนเสร็จ • พบจุดที่อาจเป็นคิล "+results.size()+" จุด • กรุณาตรวจสอบก่อนเรนเดอร์");
+          String note="พบจุดคิลที่เป็นไปได้ "+detected.size()+
+            " จุด • ต้องตรวจว่าเป็นคิลของเราก่อนเรนเดอร์";
+          if(badFrames>0 || badOcr>0)
+             note+=" • ภาพอ่านพลาด "+badFrames+" / OCR พลาด "+badOcr+" เฟรม";
+          if(goodFrames==0) note="ไม่สามารถถอดเฟรมวิดีโอได้ กรุณาลองไฟล์ MP4 H.264";
+          setStatus((cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+note);
         });
-      } catch(Exception e) {
+      }catch(Exception problem){
         main.post(()->{
-          scanning=false;busy=false;getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-          refreshButtons();setStatus("สแกนไม่สำเร็จ: "+e.getMessage()+" • เพิ่มเวลาคิลเองได้");
+          scanning=false;busy=false;
+          getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+          refreshButtons();
+          setStatus("สแกนล้มเหลว: "+problem.getMessage());
         });
-      } finally {try{m.release();}catch(Exception ignored){}recognizer.close();}
+      }finally{
+        try{retriever.release();}catch(Exception ignored){}
+        recognizer.close();
+      }
     });
   }
 
