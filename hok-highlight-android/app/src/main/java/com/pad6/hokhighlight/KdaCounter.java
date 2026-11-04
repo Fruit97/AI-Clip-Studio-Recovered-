@@ -109,6 +109,7 @@ public final class KdaCounter {
         private int rejectedUntrusted=0;
         private final List<Long> deathMoments=new ArrayList<>();
         private final List<Kill> ambiguousCandidates=new ArrayList<>();
+        private final List<Long> deathMoments=new ArrayList<>();
 
         public boolean isCalibrated(){return baseline!=null;}
         public int individualKills(){return baseline==null?-1:baseline.kills;}
@@ -120,6 +121,7 @@ public final class KdaCounter {
         public int deathsIgnored(){return deathsIgnored;}
         public int ambiguousEvents(){return ambiguous;}
         public int rejectedUntrusted(){return rejectedUntrusted;}
+        public List<Long> deathMoments(){return new ArrayList<>(deathMoments);}
         public List<Long> deathMoments(){return new ArrayList<>(deathMoments);}
         public List<Kill> drainAmbiguous(){
             List<Kill> copy=new ArrayList<>(ambiguousCandidates);
