@@ -1,4 +1,4 @@
-name: HOK Highlight AI V8.2 APK
+name: HOK Highlight AI V8.3 APK
 on:
   push:
     branches: [hok-highlight-apk-v7]
@@ -44,7 +44,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: HOK-Highlight-AI-APK-V8-2
+          name: HOK-Highlight-AI-APK-V8-3
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -54,9 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v8.2.apk
-          if gh release view hok-highlight-ai-v8-2 >/dev/null 2>&1; then
-            gh release upload hok-highlight-ai-v8-2 HOK-Highlight-AI-Pad6-v8.2.apk --clobber
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v8.3.apk
+          if gh release view hok-highlight-ai-v8-3 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v8-3 HOK-Highlight-AI-Pad6-v8.3.apk --clobber
           else
-            gh release create hok-highlight-ai-v8-2 HOK-Highlight-AI-Pad6-v8.2.apk --target hok-highlight-apk-v7 --title 'HOK Highlight AI Pad6 v8.2' --notes 'V8.2: auto-export one 720p highlight MP4 with 5 seconds before a confirmed personal K increase and ONE second after; merged overlapping fights and jump cuts unchanged. Regression tests updated; device validation pending.'
+            gh release create hok-highlight-ai-v8-3 HOK-Highlight-AI-Pad6-v8.3.apk --target hok-highlight-apk-v7 --title 'HOK Highlight AI Pad6 v8.3' --notes 'V8.3: rolled back to verified V8.3 scan, K recognition, automatic export, and scene grouping. Only trim each grouped scene end to one second after its last confirmed kill. JUnit test coverage. Real-device validation still required.'
           fi

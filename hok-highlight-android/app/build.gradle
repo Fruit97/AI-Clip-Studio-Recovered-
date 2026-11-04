@@ -8,8 +8,8 @@ android {
         applicationId 'com.pad6.hokhighlight'
         minSdk 29
         targetSdk 34
-        versionCode 17
-        versionName '8.2.0'
+        versionCode 18
+        versionName '8.3.0'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

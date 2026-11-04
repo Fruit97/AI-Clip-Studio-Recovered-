@@ -84,6 +84,15 @@ public class HighlightPlannerTest {
    long duration=0L;for(HighlightPlanner.Range v:r)duration+=v.endMs-v.startMs;
    assertEquals(7000L+6000L+6000L,duration);
  }
+ @Test public void keepV81FightGroupingWhenKillsAreSevenSecondsApart() {
+   // V8.1 grouped these kills because its original after-tail was 3s.
+   // The shorter end-tail must NOT split that formerly continuous fight.
+   List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
+       Arrays.asList(10000L,17000L),Collections.emptyList(),60000L);
+   assertEquals(1,r.size());
+   assertEquals(5000L,r.get(0).startMs);
+   assertEquals(18000L,r.get(0).endMs);
+ }
  @Test public void nullMarkersAreIgnored() {
    assertEquals(2,HighlightPlanner.calculate(
        Arrays.asList(10000L,null,20000L),30000L).size());

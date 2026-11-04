@@ -24,6 +24,10 @@ public final class HighlightPlanner {
     return String.format(java.util.Locale.US,"%02d:%02d",s/60,s%60);
   }
   public static List<Range> calculate(List<Long> killsMs, long videoLengthMs) {
+    return calculateWithTail(killsMs,videoLengthMs,AFTER_KILL_MS);
+  }
+  private static List<Range> calculateWithTail(
+      List<Long> killsMs,long videoLengthMs,long tailMs) {
     if (videoLengthMs <= 0) return Collections.emptyList();
     List<Long> sorted = new ArrayList<>();
     if(killsMs!=null) for(Long value:killsMs)
@@ -33,7 +37,7 @@ public final class HighlightPlanner {
     for (Long when : sorted) {
       if (when == null || when < 0 || when > videoLengthMs) continue;
       long start = Math.max(0, when-BEFORE_KILL_MS);
-      long end = Math.min(videoLengthMs,when+AFTER_KILL_MS);
+      long end = Math.min(videoLengthMs,when+tailMs);
       if (end <= start) continue;
       // IMPORTANT: one kill must produce one clip, even if adjacent clips
       // overlap. V1-V4 merged two close kills into one and lost shot count.
@@ -50,10 +54,15 @@ public final class HighlightPlanner {
    */
   public static List<Range> calculateAvoidDeaths(
       List<Long> killsMs,List<Long> deathsMs,long videoLengthMs){
+    return calculateAvoidDeathsWithTail(
+        killsMs,deathsMs,videoLengthMs,AFTER_KILL_MS);
+  }
+  private static List<Range> calculateAvoidDeathsWithTail(
+      List<Long> killsMs,List<Long> deathsMs,long videoLengthMs,long tailMs){
     if(killsMs==null || killsMs.isEmpty() || videoLengthMs<=0)
       return Collections.emptyList();
     if(deathsMs==null || deathsMs.isEmpty())
-      return calculate(killsMs,videoLengthMs);
+      return calculateWithTail(killsMs,videoLengthMs,tailMs);
     List<Long> ordered=new ArrayList<>();
     for(Long value:killsMs)
       if(value!=null && value>=0 && value<=videoLengthMs)ordered.add(value);
@@ -61,7 +70,7 @@ public final class HighlightPlanner {
     List<Range> out=new ArrayList<>();
     for(Long killAt:ordered){
       long start=Math.max(0L,killAt-BEFORE_KILL_MS);
-      long end=Math.min(videoLengthMs,killAt+AFTER_KILL_MS);
+      long end=Math.min(videoLengthMs,killAt+tailMs);
       boolean deathInLead=false;
       for(Long deathAt:deathsMs){
         if(deathAt==null)continue;
@@ -81,7 +90,7 @@ public final class HighlightPlanner {
 
   /**
    * Join touching/overlapping clips into ONE uninterrupted fight. When kills
-   * are close together, the old exporter repeated nearly the same source seconds
+   * are close together, the old exporter repeated nearly the same 8 seconds
    * per kill; the resulting MP4 appeared to jump backwards. Merge only ranges
    * that overlap or touch. Leave real gaps as hard cuts to the next kill.
    */
@@ -103,10 +112,33 @@ public final class HighlightPlanner {
     return merged;
   }
 
-  /** Final MP4 timeline: five seconds before K, three after, without repeats. */
+  /**
+   * Keep V8.1 fight grouping EXACTLY as before (5s before + 3s after),
+   * then shorten only the END of each already-grouped scene to 1s after
+   * its last confirmed kill. Simply shortening the raw individual ranges
+   * changes which close fights merge, causing unexpected jump cuts.
+   *
+   * This changes no OCR, detection, kill ordering or Media3 export logic.
+   */
   public static List<Range> planFinalVideo(List<Long> killsMs,
       List<Long> deathsMs,long lengthMs){
-    return mergeOverlapping(calculateAvoidDeaths(killsMs,deathsMs,lengthMs));
+    List<Range> originalScenes=mergeOverlapping(
+        calculateAvoidDeathsWithTail(killsMs,deathsMs,lengthMs,3000L));
+    if(originalScenes.isEmpty())return originalScenes;
+    List<Range> finalScenes=new ArrayList<>();
+    for(Range scene:originalScenes){
+      long lastKill=-1L;
+      if(killsMs!=null)for(Long killAt:killsMs)
+        if(killAt!=null && killAt>=scene.startMs && killAt<=scene.endMs)
+          lastKill=Math.max(lastKill,killAt);
+      // Preserve any V8.1 early cutoff that removed a subsequent death.
+      long end=lastKill>=0L
+          ? Math.min(scene.endMs,Math.min(lengthMs,lastKill+AFTER_KILL_MS))
+          : scene.endMs;
+      if(end>scene.startMs+350L)
+        finalScenes.add(new Range(scene.startMs,end));
+    }
+    return finalScenes;
   }
 
 }

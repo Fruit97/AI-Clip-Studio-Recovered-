@@ -1,13 +1,13 @@
-# HOK Highlight AI V8.2 — five seconds before, one second after
+# HOK Highlight AI V8.3 — V8.1 scene selection with one-second final tail
 
-Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 1 second after each verified kill; overlapping windows merge without repeating video frames.
+Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
 
-## V8.2: final 5+1-second cut timing (November 4, 2026)
-- User-approved setting: five seconds **before** the confirmed personal sword/K increment and exactly one second **after** it. An isolated kill creates a six-second source segment, bounded by the available video.
-- Example: kill at 01:20 => crop 01:15 to 01:21. Close consecutive kills merge into a continuous fight without rewinding; separated fight scenes jump cut to the next clip.
-- Retains automatic scan/import, automatic one-file MP4 concatenation, game audio, 720p resolution, 60 FPS ceiling, and the separate death-screen exclusion logic.
-- Regression tests were updated for the 5+1 window, adjacent kills, separated cuts, source boundaries and death trimming.
-- Building the APK and passing unit tests do not prove complete K OCR accuracy or on-device video rendering.
+## V8.3 rollback-based hotfix (November 4, 2026)
+- Restored the V8.1 scanner, sword/K tracker, video sequence assembly and scene grouping unchanged. The V8.2 detector was not actually modified, but shortening the source windows before grouping changed which nearby fights merged.
+- V8.3 first groups and orders fights exactly as V8.1 did using the original three-second scene-overlap allowance, then trims the final END of every selected scene to 1 second after the last confirmed kill. Thus it avoids V8.2's unexpected scene splits while honoring the user's 5-before + 1-after instruction.
+- An isolated kill at 01:20 exports 01:15–01:21. Several nearby kills remain within the same uninterrupted V8.1 fight and end 1 second after the last kill; remote kills hard-cut into the next grouped scene.
+- K/D/A OCR, own-death exclusion, one-file MP4 export, and audio/720p/60fps options are not changed. This is not a claim of on-device video validation.
+- Regression tests cover stable V8.1 grouping with close kills separated by 7 seconds, six-second isolated kills, and own-death trimming.
 
 ## V8.1: make confirmed highlights into the final video (November 4, 2026)
 - After selecting a HOK MP4, the app starts detection automatically; the scan and export buttons remain available for manual retry or rescans.
