@@ -57,8 +57,4 @@ public final class HeroOnlyGuard {
                   0.15*Math.max(0,Math.min(1,contrast))));
     }
 
-    @Deprecated public static boolean isHeroPortraitPair(KillVisionV2.VisualSignal v) {
-        return v!=null && v.centerDark>=.43 && v.leftColor>=.12
-            && v.rightColor>=.12 && v.heroPair>=.21;
-    }
 }
