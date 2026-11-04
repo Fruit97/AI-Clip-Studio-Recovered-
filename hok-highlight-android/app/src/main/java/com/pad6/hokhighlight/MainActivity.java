@@ -136,7 +136,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V7.1",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V7.2",26,TEXT));
     root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -157,9 +157,9 @@ public class MainActivity extends Activity {
     });
 
     root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
-    root.addView(label("V7.1 เฉพาะคิลฮีโร่ของเรา • แยกจำนวนคิล (K) จากจำนวนตาย (D) และช่วยเหลือ (A) • ตอนตายไม่เลือกตัด • มอนสเตอร์ไม่นับเป็นคิลฮีโร่",13,MUTED));
+    root.addView(label("V7.2 เฉพาะคิลฮีโร่ของเรา • แยกจำนวนคิล (K) จากจำนวนตาย (D) และช่วยเหลือ (A) • ตอนตายไม่เลือกตัด • มอนสเตอร์ไม่นับเป็นคิลฮีโร่",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI ตรวจคิลฮีโร่ V7.1",scanRow,v->scanForKills());
+    scanButton=button("AI ตรวจคิลฮีโร่ V7.2",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -182,14 +182,14 @@ public class MainActivity extends Activity {
     button("เลือกทุกคิล",clearRow,v->{for(KillMark m:marks)m.enabled=true;renderMarks();});
 
     root.addView(label("3. เรนเดอร์ MP4 720p เน้นคุณภาพ",18,TEXT));
-    root.addView(label("H.264 + เสียงเกม • ขอค่า bitrate 16 Mbps • รักษา FPS ต้นฉบับ (หากต้นฉบับ 60 FPS ผลลัพธ์จะเป็น 60 FPS)",13,MUTED));
+    root.addView(label("H.264 + เสียงเกม • ขอ bitrate 16 Mbps • สูงสุด 60 FPS (หากต้นฉบับต่ำกว่า 60 จะไม่เพิ่มเฟรม)",13,MUTED));
     LinearLayout exportRow=row(root);
     exportButton=button("สร้างคลิปไฮไลท์",exportRow,v->export());
     progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V7.1 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
+    root.addView(label("หมายเหตุ: V7.2 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -332,7 +332,7 @@ public class MainActivity extends Activity {
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V7.1 กำลังตรวจ K/D/A ส่วนตัวและข้อความคิลฮีโร่…");
+    setStatus("V7.2 กำลังตรวจ K/D/A ตำแหน่งจริงจากคลิป HOK…");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
@@ -421,13 +421,13 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V7.1 "+decision.reason);
+              "V7.2 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V7.1 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V7.2 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -458,7 +458,8 @@ public class MainActivity extends Activity {
             setStatus("ยกเลิกสแกนแล้ว • คงรายการก่อนหน้า ไม่ใช้ผลที่สแกนค้าง");
             return;
           }
-          marks.removeIf(mark->mark.reason.startsWith("V7.1 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V7.2 ") ||
+              mark.reason.startsWith("V7.1 ") ||
               mark.reason.startsWith("V7 ") ||
               mark.reason.startsWith("KDA ") ||
               mark.reason.startsWith("AI ") ||
@@ -530,7 +531,7 @@ public class MainActivity extends Activity {
             .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
               .setStartPositionMs(r.startMs).setEndPositionMs(r.endMs).build())
             .build();
-        clips.add(new EditedMediaItem.Builder(src).build());
+        clips.add(new EditedMediaItem.Builder(src).setFrameRate(60).build());
       }
       EditedMediaItemSequence sequence=EditedMediaItemSequence.withAudioAndVideoFrom(clips);
       Composition composition=new Composition.Builder(sequence)

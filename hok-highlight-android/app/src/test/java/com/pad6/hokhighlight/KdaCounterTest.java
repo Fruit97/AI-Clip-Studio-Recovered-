@@ -18,17 +18,51 @@ public class KdaCounterTest {
 
   @Test public void recognizesPersonalKdaNearHeaderNotArbitraryRightmostNumbers() {
     List<KdaCounter.NumberBox> boxes=Arrays.asList(
-      new KdaCounter.NumberBox(13,.38f,.048f), // team score
-      new KdaCounter.NumberBox(14,.45f,.048f), // opponent score
-      new KdaCounter.NumberBox(7,.60f,.052f),
-      new KdaCounter.NumberBox(3,.67f,.052f),
-      new KdaCounter.NumberBox(0,.74f,.052f),
-      new KdaCounter.NumberBox(30,.90f,.048f)); // FPS
+      new KdaCounter.NumberBox(13,.600f,.048f), // team score
+      new KdaCounter.NumberBox(14,.690f,.048f), // opponent score
+      new KdaCounter.NumberBox(7,.829f,.052f), // personal K
+      new KdaCounter.NumberBox(3,.867f,.052f), // personal D
+      new KdaCounter.NumberBox(0,.905f,.052f), // personal A
+      new KdaCounter.NumberBox(30,.795f,.025f)); // FPS
     KdaCounter.Observation obs=KdaCounter.parse(boxes);
     assertNotNull(obs);
     assertEquals(7,obs.kills);
     assertEquals(3,obs.deaths);
     assertEquals(0,obs.assists);
+  }
+
+  @Test public void scoreboardDigitsAreNotPersonalKda() {
+    assertNull(KdaCounter.parse(Arrays.asList(
+      new KdaCounter.NumberBox(5,.56f,.05f),
+      new KdaCounter.NumberBox(2,.62f,.05f),
+      new KdaCounter.NumberBox(8,.69f,.05f))));
+  }
+
+  @Test public void replayReferenceHudThreePersonalKillsOneDeath() {
+    // Screen values inspected in 24218.mp4, not on-device ML Kit outputs.
+    KdaCounter.Tracker tracker=new KdaCounter.Tracker();
+    KdaCounter.Observation base=KdaCounter.parse(Arrays.asList(
+      new KdaCounter.NumberBox(0,.829f,.052f),
+      new KdaCounter.NumberBox(0,.867f,.052f),
+      new KdaCounter.NumberBox(0,.905f,.052f)));
+    assertNotNull(base);
+    for(int i=0;i<5;i++)assertTrue(tracker.feed(400L*i,base).isEmpty());
+    int[][] values={{1,0,0},{1,1,0},{2,1,0},{3,1,0}};
+    long[] timestamps={40000,100000,190000,235000};
+    int count=0;
+    for(int j=0;j<values.length;j++){
+      int[] v=values[j];
+      KdaCounter.Observation o=KdaCounter.parse(Arrays.asList(
+        new KdaCounter.NumberBox(v[0],.829f,.052f),
+        new KdaCounter.NumberBox(v[1],.867f,.052f),
+        new KdaCounter.NumberBox(v[2],.905f,.052f)));
+      List<KdaCounter.Kill> found=java.util.Collections.emptyList();
+      for(int i=0;i<3;i++)found=tracker.feed(timestamps[j]+400L*i,o);
+      for(KdaCounter.Kill k:found)assertTrue(k.trustedHud);
+      count+=found.size();
+    }
+    assertEquals(3,count);
+    assertEquals(1,tracker.deathsIgnored());
   }
 
   @Test public void noThreeCountersMustNotInventAKill() {

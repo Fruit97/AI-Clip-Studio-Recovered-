@@ -52,11 +52,11 @@ public class KdaHudOcrTest {
 
   @Test public void calibratedSeparateDigitsCanReadRealHudWithoutSlashes() {
     List<KdaHudOcr.Line> source=Arrays.asList(
-       new KdaHudOcr.Line("11:34",.90f,.035f),
-       new KdaHudOcr.Line("3",.60f,.052f),
-       new KdaHudOcr.Line("1",.67f,.052f),
-       new KdaHudOcr.Line("4",.74f,.052f),
-       new KdaHudOcr.Line("30 FPS",.96f,.035f));
+       new KdaHudOcr.Line("11:34",.62f,.035f),
+       new KdaHudOcr.Line("3",.829f,.052f),
+       new KdaHudOcr.Line("1",.867f,.052f),
+       new KdaHudOcr.Line("4",.905f,.052f),
+       new KdaHudOcr.Line("30 FPS",.795f,.025f));
     KdaCounter.Observation weak=KdaHudOcr.parse(source);
     assertNotNull(weak);
     assertFalse(weak.trusted);
@@ -69,11 +69,11 @@ public class KdaHudOcrTest {
     assertTrue(t.feed(1600,weak).isEmpty());
     assertTrue(t.isCalibrated());
 
-    KdaCounter.Observation death=new KdaCounter.Observation(3,2,4,.67f,.052f,false);
+    KdaCounter.Observation death=new KdaCounter.Observation(3,2,4,.867f,.052f,false);
     for(int i=0;i<3;i++)assertTrue(t.feed(2400+i*400,death).isEmpty());
     assertEquals(1,t.deathsIgnored());
 
-    KdaCounter.Observation kill=new KdaCounter.Observation(4,2,4,.67f,.052f,false);
+    KdaCounter.Observation kill=new KdaCounter.Observation(4,2,4,.867f,.052f,false);
     List<KdaCounter.Kill> kills=Collections.emptyList();
     for(int i=0;i<3;i++)kills=t.feed(5000+i*400,kill);
     assertEquals(1,kills.size());
@@ -81,9 +81,9 @@ public class KdaHudOcrTest {
 
   @Test public void isolatedLooseDigitsCannotTriggerUncalibratedKills() {
     KdaCounter.Observation weak=KdaCounter.parse(Arrays.asList(
-      new KdaCounter.NumberBox(3,.60f,.052f),
-      new KdaCounter.NumberBox(1,.67f,.052f),
-      new KdaCounter.NumberBox(4,.74f,.052f)));
+      new KdaCounter.NumberBox(3,.829f,.052f),
+      new KdaCounter.NumberBox(1,.867f,.052f),
+      new KdaCounter.NumberBox(4,.905f,.052f)));
     assertNotNull(weak);assertFalse(weak.trusted);
     KdaCounter.Tracker t=new KdaCounter.Tracker();
     for(int i=0;i<3;i++)assertTrue(t.feed(i*400,weak).isEmpty());

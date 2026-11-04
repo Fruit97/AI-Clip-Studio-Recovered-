@@ -1,6 +1,14 @@
-# HOK Highlight AI V7.1 — own-hero kills with evidence gating
+# HOK Highlight AI V7.2 — own-hero kills with evidence gating
 
-Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, source FPS (60 FPS if source 60 FPS and encoder supports it). Cuts 3 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 3 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.2 real-sample HUD correction (November 4, 2026)
+- Inspected real frames from `24218.mp4` at 1536x960 (277 seconds). Visible K progression goes from 0 to 1 to 2 to 3, with D rising once.
+- The personal K/D/A digits under sword/skull/fist icons are at approximate normalized x centers .829/.867/.905, not the old .60/.67/.74.
+- Updated OCR grouping to the real upper-right personal HUD band. A repeated and calibrated stable group there may now confirm K increases without relying on Latin OCR of Thai announcements.
+- Added repeatable tests for 3 kills, 1 death, and team-score exclusions.
+- Added a 60 FPS maximum to Media3 export. Lower-FPS input remains lower FPS; no synthetic interpolation.
+- This is a frame-informed detector correction, not a claim of measured end-to-end Android OCR accuracy or a tested MP4 render on Xiaomi Pad 6.
 
 ## V7.1 fixes (November 4, 2026)
 - Keep confirmed personal K-counter kills occurring shortly before the player's death; export trims subsequent death footage.

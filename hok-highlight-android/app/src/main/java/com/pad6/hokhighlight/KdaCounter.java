@@ -44,7 +44,7 @@ public final class KdaCounter {
     }
 
     /**
-     * Find 3 adjacent small counters in the upper-HUD K/D/A band.
+     * Find 3 adjacent small counters in the upper-right personal K/D/A band.
      * Do not pick arbitrary "rightmost 3 numbers" (V5 bug):
      * game clock, gold and team scores are nearby.
      *
@@ -55,7 +55,7 @@ public final class KdaCounter {
         if(raw==null||raw.size()<3)return null;
         List<NumberBox> numbers=new ArrayList<>();
         for(NumberBox n:raw){
-            if(n.value>=0 && n.value<=45 && n.x>=.46f && n.x<=.86f &&
+            if(n.value>=0 && n.value<=45 && n.x>=.765f && n.x<=.955f &&
                n.y>=.012f && n.y<=.115f)numbers.add(n);
         }
         numbers.sort(Comparator.comparingDouble(n->n.x));
@@ -75,10 +75,10 @@ public final class KdaCounter {
                     if(Math.max(d1,d2)/Math.min(d1,d2)>1.8)continue;
                     double centerX=(a.x+c.x)/2.0;
                     double centerY=(a.y+b.y+c.y)/3.0;
-                    if(centerX<.54||centerX>.82||centerY>.11)continue;
+                    if(centerX<.80||centerX>.925||centerY>.11)continue;
                     // KDA typically near top-middle-right, scoreboard towards
                     // the centre and clock/minimap at the edges.
-                    double score=-(Math.abs(centerX-.67)*2.5 +
+                    double score=-(Math.abs(centerX-.867)*2.5 +
                          Math.abs(centerY-.055)*3.0 +
                          Math.abs(d1-d2)*10.0);
                     if(score>bestScore){
@@ -182,7 +182,16 @@ public final class KdaCounter {
             }
             // Trust the entire interval only when BOTH snapshots identify
             // an explicit personal K/D/A readout, not inferred HUD numerals.
-            boolean verifiedHud=baseline.trusted && observed.trusted;
+            // Real HOK video 24218.mp4 shows separate personal K/D/A
+            // digits near x=.829/.867/.905 without slash separators.
+            // Trust only the right-side HUD after five repeat baseline reads
+            // and a second three-read snapshot at the same location.
+            boolean rightHud=baseline.x>=.835f && baseline.x<=.925f &&
+                observed.x>=.835f && observed.x<=.925f &&
+                baseline.y>=.025f && baseline.y<=.090f &&
+                observed.y>=.025f && observed.y<=.090f &&
+                trustedSnapshots>=2;
+            boolean verifiedHud=(baseline.trusted && observed.trusted) || rightHud;
             int deltaK=observed.kills-baseline.kills;
             int deltaD=observed.deaths-baseline.deaths;
             int deltaA=observed.assists-baseline.assists;
