@@ -1,6 +1,7 @@
 package com.pad6.hokhighlight;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,11 +27,26 @@ public final class KdaHudOcr {
     public static KdaCounter.Observation parse(List<Line> lines){
         if(lines==null)return null;
         KdaCounter.Observation best=null;
+        List<KdaCounter.NumberBox> looseDigits=new ArrayList<>();
         double bestScore=Double.NEGATIVE_INFINITY;
         for(Line line:lines) {
             if(line==null||line.text==null)continue;
             // KDA expected in the upper-right HUD; avoid skill cooldowns and chat.
             if(line.x<.48f || line.x>.97f || line.y<0 || line.y>.15f)continue;
+            // In normal HOK matches the KDA may render as three separate
+            // digits under small hero icons, WITHOUT / characters. V5 could
+            // never read this UI. Treat those as provisional until the
+            // temporal tracker calibrates the stable HUD location.
+            String only=line.text.trim();
+            if(only.matches("[0-9]{1,2}")){
+                looseDigits.add(new KdaCounter.NumberBox(
+                    Integer.parseInt(only),line.x,line.y));
+            } else if(only.matches("[0-9]{1,2}\\\\s+[0-9]{1,2}\\\\s+[0-9]{1,2}")){
+                String[] parts=only.split("\\\\s+");
+                for(int n=0;n<3;n++)
+                    looseDigits.add(new KdaCounter.NumberBox(
+                        Integer.parseInt(parts[n]),line.x+(n-1)*.05f,line.y));
+            }
             Matcher match=TRIPLET.matcher(line.text);
             while(match.find()){
                 int k=Integer.parseInt(match.group(1));
@@ -46,6 +62,8 @@ public final class KdaHudOcr {
                 }
             }
         }
-        return best;
+        if(best!=null) return best;
+        KdaCounter.Observation provisional=KdaCounter.parse(looseDigits);
+        return provisional;
     }
 }
