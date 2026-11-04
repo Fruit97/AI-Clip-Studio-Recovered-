@@ -75,8 +75,11 @@ public final class KillVisionV2 {
     static final class Patch {
         double luminosity;
         double dark;
-        double colorful;
-        Patch(double lum,double dark,double color){luminosity=lum;this.dark=dark;colorful=color;}
+        double colorful, red, green, blue;
+        Patch(double lum,double dark,double color,double red,double green,double blue){
+            luminosity=lum;this.dark=dark;colorful=color;
+            this.red=red;this.green=green;this.blue=blue;
+        }
     }
 
     static Patch patch(int[] argb,int width,int height,
@@ -87,7 +90,7 @@ public final class KillVisionV2 {
         right=Math.max(left+1,Math.min(width,right));
         top=Math.max(0,Math.min(height-1,top));
         bottom=Math.max(top+1,Math.min(height,bottom));
-        double sumLum=0, darkness=0, color=0;
+        double sumLum=0, darkness=0, color=0, red=0,green=0,blue=0;
         int count=0;
         int stepX=Math.max(1,(right-left)/32);
         int stepY=Math.max(1,(bottom-top)/14);
@@ -97,12 +100,13 @@ public final class KillVisionV2 {
             double lum=(r*54.0+g*183.0+b*19.0)/256.0;
             int max=Math.max(r,Math.max(g,b));
             int min=Math.min(r,Math.min(g,b));
-            sumLum+=lum;
+            sumLum+=lum; red+=r;green+=g;blue+=b;
             if(lum<116)darkness++;
             if(max-min>48 && max>110)color++;
             count++;
         }
-        return new Patch(sumLum/Math.max(count,1),darkness/Math.max(count,1),color/Math.max(count,1));
+        double n=Math.max(count,1);
+        return new Patch(sumLum/n,darkness/n,color/n,red/n,green/n,blue/n);
     }
 
     /**
@@ -120,9 +124,15 @@ public final class KillVisionV2 {
             Patch left=patch(argb,width,height,.205,.315,cy-.052,cy+.052);
             Patch right=patch(argb,width,height,.685,.795,cy-.052,cy+.052);
             Patch below=patch(argb,width,height,.37,.63,cy+.082,cy+.132);
+            Patch leftScene=patch(argb,width,height,.235,.305,cy+.110,cy+.167);
+            Patch rightScene=patch(argb,width,height,.695,.765,cy+.110,cy+.167);
             double contrast=clamp((below.luminosity-center.luminosity+5.0)/65.0);
+            double leftDifference=HeroOnlyGuard.rgbDifference(left.red,left.green,left.blue,
+                    leftScene.red,leftScene.green,leftScene.blue);
+            double rightDifference=HeroOnlyGuard.rgbDifference(right.red,right.green,right.blue,
+                    rightScene.red,rightScene.green,rightScene.blue);
             double pair=HeroOnlyGuard.portraitPairEvidence(left.colorful,right.colorful,
-                    center.dark,contrast);
+                    center.dark,contrast,leftDifference,rightDifference);
             double score=.47*center.dark + .22*left.colorful +
                          .21*right.colorful + .10*contrast;
             // Hero eliminations usually contain TWO circular hero portraits.
