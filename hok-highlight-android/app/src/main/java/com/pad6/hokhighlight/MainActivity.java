@@ -77,6 +77,7 @@ public class MainActivity extends Activity {
   private final ExecutorService worker = Executors.newSingleThreadExecutor();
   private final AtomicBoolean stopScan = new AtomicBoolean(false);
   private final List<KillMark> marks = new ArrayList<>();
+  private final List<Long> ownDeathTimes = new ArrayList<>();
 
   private Uri videoUri;
   private long durationMs;
@@ -226,7 +227,7 @@ public class MainActivity extends Activity {
       long dur=val==null?0:Long.parseLong(val);
       if(dur<=0) throw new IllegalArgumentException("ไม่มีข้อมูลเวลาวิดีโอ");
       if(dur>45*60*1000L) {setStatus("คลิปนี้ยาวเกิน 45 นาที");return;}
-      durationMs=dur; videoUri=uri; marks.clear();
+      durationMs=dur; videoUri=uri; marks.clear(); ownDeathTimes.clear();
       String fps="ไม่ทราบ";
       try {
         String rate=retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
@@ -492,7 +493,10 @@ public class MainActivity extends Activity {
            personalKda.individualAssists() : "ยังจับตำแหน่ง K/D/A ไม่ได้";
         final boolean calibrated=personalKda.isCalibrated();
         final boolean cancelled=stopScan.get();
+        final List<Long> deathSnapshots=personalKda.deathMoments();
         main.post(()->{
+          ownDeathTimes.clear();
+          ownDeathTimes.addAll(deathSnapshots);
           // Preserve manually-added marks, replace previous automatic proposals.
           marks.removeIf(mark->mark.reason.startsWith("KDA ") ||
               mark.reason.startsWith("AI ") ||
@@ -540,7 +544,7 @@ public class MainActivity extends Activity {
     if(busy || videoUri==null)return;
     List<Long> selected=new ArrayList<>();
     for(KillMark mark:marks) if(mark.enabled)selected.add(mark.when);
-    List<HighlightPlanner.Range> ranges=HighlightPlanner.calculate(selected,durationMs);
+    List<HighlightPlanner.Range> ranges=HighlightPlanner.calculateAvoidDeaths(selected,ownDeathTimes,durationMs);
     if(ranges.isEmpty()) {setStatus("ยังไม่มีคิลที่เลือก");return;}
     File dir=getExternalFilesDir(Environment.DIRECTORY_MOVIES);
     if(dir==null){setStatus("เปิดพื้นที่จัดเก็บไฟล์ไม่ได้");return;}
