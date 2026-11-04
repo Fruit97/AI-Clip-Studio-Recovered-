@@ -63,13 +63,26 @@ public class KillVisionV2Test {
       KillVisionV2.parseText("You have slain an enemy hero").category);
   }
 
-  @Test public void singleIconBossBannerMustNotLookLikeTwoHeroPortraits() {
-    int w=640,h=360;int[] boss=new int[w*h];java.util.Arrays.fill(boss,0xff668843);
-    rect(boss,w,h,.35,.65,.155,.217,0xff101823);
-    rect(boss,w,h,.205,.315,.13,.235,0xff185ed8);
-    KillVisionV2.VisualSignal result=KillVisionV2.analyze(boss,w,h);
-    assertFalse("single boss icon falsely matched hero portraits",
-      HeroOnlyGuard.isHeroPortraitPair(result));
+  @Test public void regressionV2VisualKillMustStillBeDetected() {
+    // V3 returned 0 candidates because it *required* a two-portrait score.
+    // V4 must preserve V2's proven generic banner candidates when OCR is absent.
+    KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
+    KillVisionV2.VisualSignal cue=new KillVisionV2.VisualSignal(.85,.91,.08,.09);
+    KillVisionV2.TextSignal unreadable=KillVisionV2.parseText("");
+    assertNull(tracker.feed(1000,cue,unreadable));
+    assertNull(tracker.feed(1400,cue,unreadable));
+    assertNotNull("V2 visual candidate was mistakenly filtered by V3",
+       tracker.feed(2600,cue,unreadable));
+  }
+
+  @Test public void objectiveOcrVetoesVisualMonsterKill() {
+    KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
+    KillVisionV2.VisualSignal visual=new KillVisionV2.VisualSignal(.87,.92,.7,.7);
+    assertNull(tracker.feed(1000,visual,KillVisionV2.parseText("")));
+    assertNull(tracker.feed(1400,visual,KillVisionV2.parseText("")));
+    assertNull(tracker.feed(1800,visual,KillVisionV2.parseText("Overlord slain")));
+    assertNull(tracker.feed(2600,visual,KillVisionV2.parseText("")));
+    assertNull(tracker.finish(4200));
   }
 
   @Test public void trackerEmitsOneEventPerPersistentBannerAfterVetoWindow(){
