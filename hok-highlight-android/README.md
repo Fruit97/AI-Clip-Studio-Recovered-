@@ -1,6 +1,15 @@
-# HOK Highlight AI V8.3 — V8.1 scene selection with one-second final tail
+# HOK Highlight AI V8.4 — background processing and Android notifications
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V8.4: background processing and notification shade (November 4, 2026)
+- **Only this requested feature is added** to the V8.3 codebase. Kill-counter detection, K/D/A recognition, grouping, five-seconds-before/one-second-after cuts, 720p/H.264 quality, original audio and Media3 concatenation are unchanged.
+- An Android foreground dataSync service starts with a new scan or export and holds a bounded partial CPU WakeLock while running. This makes it possible to switch to other apps or turn the screen off without automatically cancelling the existing processing task.
+- Ongoing Android status notification shows progress while scanning, exporting and saving the MP4; a separate alert announces success, cancellation or error when the job completes.
+- Android 13+ asks for POST_NOTIFICATIONS once launched; allow this permission to see notifications in the shade. Notification channels can also be enabled in system App Settings.
+- If Android destroys the UI Activity during a job, its previous onDestroy() cancellation is deferred; the same processing worker and Media3 Transformer continue until completion. The notification remains the source of status if the UI was recreated.
+- This is not force-stop/reboot recovery: Android may stop the service under extreme resource/battery constraints. User-triggered force stop always stops work.
+- This feature has compile/unit verification in GitHub Actions but has not been stress-tested switching applications and locking the real Xiaomi Pad 6. Android 14 uses the dataSync foreground service type and required manifest permission.
 
 ## V8.3 rollback-based hotfix (November 4, 2026)
 - Restored the V8.1 scanner, sword/K tracker, video sequence assembly and scene grouping unchanged. The V8.2 detector was not actually modified, but shortening the source windows before grouping changed which nearby fights merged.

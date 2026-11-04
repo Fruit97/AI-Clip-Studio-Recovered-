@@ -1,6 +1,8 @@
 package com.pad6.hokhighlight;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.ContentResolver;
@@ -14,6 +16,7 @@ import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -105,6 +108,7 @@ public class MainActivity extends Activity {
   private Uri lastExportUri;
   private boolean busy = false;
   private boolean scanning = false;
+  private boolean activityDestroyed = false;
 
   static final class KillMark {
     long when;
@@ -118,7 +122,13 @@ public class MainActivity extends Activity {
     getWindow().setStatusBarColor(BG);
     getWindow().setNavigationBarColor(BG);
     buildUi();
-    setStatus("พร้อมใช้งาน • เลือกคลิป HOK เพื่อเริ่ม");
+    setStatus(BackgroundRenderService.isRunning()
+        ? "งานเดิมทำงานเบื้องหลัง • "+BackgroundRenderService.status()
+        : "พร้อมใช้งาน • เลือกคลิป HOK เพื่อเริ่ม");
+    if(Build.VERSION.SDK_INT>=33 &&
+        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=
+            PackageManager.PERMISSION_GRANTED)
+      requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},921);
   }
 
   private int dp(float value) { return (int)(getResources().getDisplayMetrics().density * value + .5f); }
@@ -150,7 +160,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V8.3",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V8.4",26,TEXT));
     root.addView(label("เลือกคิลอัตโนมัติ: 5 วิ ก่อน + 1 วิ หลัง • ต่อทุกช็อตเป็น MP4 เดียว\nเลขดาบ K เพิ่มเท่านั้น • คิลติดกันไม่เล่นภาพซ้ำ",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -213,7 +223,7 @@ public class MainActivity extends Activity {
     root.addView(label("1. ตรวจเลขดาบ K (ของผู้เล่น) เท่านั้น",18,TEXT));
     root.addView(label("ดูเลขดาบเปลี่ยน 0→1→2→3 เท่านั้น • กะโหลก D = ตาย • หมัด A = แอสซิสต์ • ไม่ใช้แบนเนอร์เป็นจุดตัด",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("สแกนคิล + ตัดต่ออัตโนมัติ V8.3",scanRow,v->scanForKills());
+    scanButton=button("สแกนคิล + ตัดต่ออัตโนมัติ V8.4",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -246,7 +256,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("V8.3: เมื่อสแกนพบเลข K เพิ่ม จะตัดต่อ MP4 ให้อัตโนมัติ • คิลติดกันต่อเนื่องไม่ฉายภาพซ้ำ • เลข K อ่านไม่ชัดต้องตรวจเอง",13,MUTED));
+    root.addView(label("V8.4: ระหว่างสแกน/เรนเดอร์ สลับไปใช้แอปอื่นได้ • ปัดแถบแจ้งเตือนด้านบนเพื่อดูเปอร์เซ็นต์ และแจ้งเมื่อ MP4 เสร็จ",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -259,7 +269,10 @@ public class MainActivity extends Activity {
   }
 
   private void chooseVideo() {
-    if(busy) {setStatus("กำลังทำงานอยู่ กรุณายุติงานก่อนเปลี่ยนไฟล์");return;}
+    if(busy || BackgroundRenderService.isRunning()) {
+      setStatus("มีงานอยู่เบื้องหลัง • ดูความคืบหน้าบนแถบแจ้งเตือน");
+      return;
+    }
     Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT);
     pick.addCategory(Intent.CATEGORY_OPENABLE);
     pick.setType("video/*");pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
@@ -523,6 +536,14 @@ public class MainActivity extends Activity {
 
   private void scanForKills() {
     if(busy || videoUri==null)return;
+    if(BackgroundRenderService.isRunning()){
+      setStatus("มีงานเดิมทำงานอยู่เบื้องหลัง • ดูแถบแจ้งเตือน");
+      return;
+    }
+    if(!BackgroundRenderService.begin(this,"กำลังตรวจเลขดาบ K")){
+      setStatus("เริ่มบริการประมวลผลเบื้องหลังไม่ได้ • ตรวจการตั้งค่าระบบ");
+      return;
+    }
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
@@ -583,6 +604,7 @@ public class MainActivity extends Activity {
             main.post(()->{
               if(!scanning)return;
               progress.setProgress(pct);
+              BackgroundRenderService.progress(this,"กำลังสแกนคิลจากวิดีโอ",pct);
               setStatus("สแกน "+pct+"% • "+HighlightPlanner.format(seenMs)+
                  " / "+HighlightPlanner.format(duration)+
                  " • ตรวจพบ K เพิ่ม "+found+" จุด • เลขดาบล่าสุด "+sword);
@@ -597,13 +619,13 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V8.3 "+decision.reason);
+              "V8.4 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V8.3 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V8.4 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -636,11 +658,14 @@ public class MainActivity extends Activity {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             refreshButtons();
             setStatus("ยกเลิกสแกนแล้ว • คงรายการก่อนหน้า ไม่ใช้ผลที่สแกนค้าง");
+             BackgroundRenderService.finish(this,false,"ยกเลิกการสแกนแล้ว");
+             releaseWorkerAfterBackground();
             return;
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V8.3 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V8.4 ") ||
+               mark.reason.startsWith("V8.3 ") ||
                mark.reason.startsWith("V8.0 ") ||
               mark.reason.startsWith("V7.7 ") ||
               mark.reason.startsWith("V7.6 ") ||
@@ -684,10 +709,15 @@ public class MainActivity extends Activity {
             summary+=" • ลองเลือกเฟรมที่เห็นเลข K ชัดกว่าเดิม แล้วแตะเลขใหม่";
           if(imagesFailed>0||ocrFailed>0)
             summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
-          setStatus("V8.3 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
+          setStatus("V8.4 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
           // No second button required: verified own-sword K transitions
           // automatically become one concatenated highlight MP4.
           if(verified>0)export();
+          else{
+            BackgroundRenderService.finish(this,true,
+                "สแกนเสร็จ ยังไม่มีคิลที่ยืนยัน • เปิดแอปเพื่อตรวจผล");
+            releaseWorkerAfterBackground();
+          }
         });
       }catch(Exception error){
         main.post(()->{
@@ -695,6 +725,9 @@ public class MainActivity extends Activity {
           getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
           refreshButtons();
           setStatus("สแกนผิดพลาด: "+error.getMessage());
+           BackgroundRenderService.finish(this,false,
+               "สแกนผิดพลาด: "+error.getMessage());
+           releaseWorkerAfterBackground();
         });
       }finally{
         try{retriever.release();}catch(Exception ignored){}
@@ -721,17 +754,40 @@ public class MainActivity extends Activity {
     // when there is a genuine gap before the next fight.
     List<HighlightPlanner.Range> ranges=HighlightPlanner.planFinalVideo(
         selected,ownDeathTimes,durationMs);
-    if(ranges.isEmpty()) {setStatus("ยังไม่มีคิลที่เลือก");return;}
+    if(ranges.isEmpty()) {
+      setStatus("ยังไม่มีคิลที่เลือก");
+      BackgroundRenderService.finish(this,false,"ไม่มีช่วงคิลสำหรับเรนเดอร์");
+      releaseWorkerAfterBackground();
+      return;
+    }
     File dir=getExternalFilesDir(Environment.DIRECTORY_MOVIES);
-    if(dir==null){setStatus("เปิดพื้นที่จัดเก็บไฟล์ไม่ได้");return;}
-    if(!dir.exists()&&!dir.mkdirs()){setStatus("สร้างโฟลเดอร์ส่งออกไม่ได้");return;}
+    if(dir==null) {
+      setStatus("เปิดพื้นที่จัดเก็บไฟล์ไม่ได้");
+      BackgroundRenderService.finish(this,false,"เปิดพื้นที่จัดเก็บวิดีโอไม่ได้");
+      releaseWorkerAfterBackground();
+      return;
+    }
+    if(!dir.exists()&&!dir.mkdirs()) {
+      setStatus("สร้างโฟลเดอร์ส่งออกไม่ได้");
+      BackgroundRenderService.finish(this,false,"สร้างโฟลเดอร์ส่งออกไม่ได้");
+      releaseWorkerAfterBackground();
+      return;
+    }
     long totalMs=0;
     for(HighlightPlanner.Range r:ranges) totalMs += r.endMs-r.startMs;
     long approxBytes=(long)(totalMs/1000.0 * (16_000_000.0+256_000.0)/8.0 * 1.4);
     StatFs stat=new StatFs(dir.getAbsolutePath());
     if(stat.getAvailableBytes()<approxBytes+100L*1024*1024){
-      setStatus("พื้นที่ว่างไม่พอ แนะนำเคลียร์พื้นที่ก่อนเรนเดอร์");return;
+      setStatus("พื้นที่ว่างไม่พอ แนะนำเคลียร์พื้นที่ก่อนเรนเดอร์");
+      BackgroundRenderService.finish(this,false,"พื้นที่ว่างไม่พอสำหรับ MP4");
+      releaseWorkerAfterBackground();
+      return;
     }
+    if(!BackgroundRenderService.begin(this,"กำลังเรนเดอร์ MP4")){
+      setStatus("เริ่มบริการเบื้องหลังสำหรับเรนเดอร์ไม่ได้");
+      return;
+    }
+    BackgroundRenderService.progress(this,"กำลังเรนเดอร์ MP4",0);
     outputFile=new File(dir,"hok_highlight_"+System.currentTimeMillis()+".mp4");
     busy=true;refreshButtons();progress.setProgress(0);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -763,26 +819,37 @@ public class MainActivity extends Activity {
           .addListener(new Transformer.Listener(){
             @Override public void onCompleted(Composition composition,ExportResult result){
               setStatus("เรนเดอร์เสร็จ กำลังบันทึกลงแกลเลอรี…");
+              BackgroundRenderService.progress(MainActivity.this,
+                  "กำลังบันทึก MP4 ลงแกลเลอรี",99);
               File saved=outputFile;
               worker.execute(()->{
                 try {Uri dest=saveToGallery(saved);
                   main.post(()->{lastExportUri=dest;finishExport();progress.setProgress(100);
                     setStatus("สร้าง MP4 ไฮไลท์สำเร็จ • "+selected.size()+
                         " คิล • "+ranges.size()+" ช็อต • บันทึกใน Movies/HOK Highlights"+
-                        "\nกด เล่น MP4 ไฮไลท์ที่บันทึก เพื่อดูผลลัพธ์");});
+                        "\nกด เล่น MP4 ไฮไลท์ที่บันทึก เพื่อดูผลลัพธ์");
+                    BackgroundRenderService.finish(MainActivity.this,true,
+                        "สร้าง MP4 สำเร็จ "+selected.size()+" คิล • บันทึกใน Movies/HOK Highlights");});
                 }catch(Exception e){
                   main.post(()->{finishExport();setStatus("เรนเดอร์สำเร็จ แต่ย้ายเข้าแกลเลอรีไม่สำเร็จ: "+e.getMessage()+
-                    "\nต้นฉบับผลลัพธ์อยู่ในพื้นที่แอป: "+saved.getAbsolutePath());});
+                    "\nต้นฉบับผลลัพธ์อยู่ในพื้นที่แอป: "+saved.getAbsolutePath());
+                    BackgroundRenderService.finish(MainActivity.this,false,
+                        "MP4 เรนเดอร์เสร็จ แต่บันทึกเข้าแกลเลอรีไม่สำเร็จ");});
                 }
               });
             }
             @Override public void onError(Composition composition,ExportResult result,ExportException error){
               finishExport();setStatus("เรนเดอร์ไม่สำเร็จ: "+error.getMessage());
+              BackgroundRenderService.finish(MainActivity.this,false,
+                  "เรนเดอร์ MP4 ไม่สำเร็จ: "+error.getMessage());
             }
           }).build();
       transformer.start(composition,outputFile.getAbsolutePath());
       pollExportProgress();
-    }catch(Exception e){finishExport();setStatus("เริ่มเรนเดอร์ไม่สำเร็จ: "+e.getMessage());}
+    }catch(Exception e){
+      finishExport();setStatus("เริ่มเรนเดอร์ไม่สำเร็จ: "+e.getMessage());
+      BackgroundRenderService.finish(this,false,"เริ่มเรนเดอร์ไม่สำเร็จ: "+e.getMessage());
+    }
   }
 
   private void pollExportProgress(){
@@ -792,7 +859,9 @@ public class MainActivity extends Activity {
       int state=transformer.getProgress(holder);
       if(state==Transformer.PROGRESS_STATE_AVAILABLE) {
         progress.setProgress(holder.progress);
-        setStatus("กำลังเรนเดอร์ไฮไลท์ • "+holder.progress+"% • อย่าปิดแอป");
+        setStatus("กำลังเรนเดอร์ไฮไลท์ • "+holder.progress+
+            "% • สามารถสลับไปใช้แอปอื่นได้");
+        BackgroundRenderService.progress(this,"กำลังเรนเดอร์ MP4",holder.progress);
       }
     } catch(Exception ignored){}
     main.postDelayed(()->{if(busy && transformer!=null)pollExportProgress();},850);
@@ -824,15 +893,24 @@ public class MainActivity extends Activity {
     busy=false;scanning=false;transformer=null;
     getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     refreshButtons();
+    releaseWorkerAfterBackground();
+  }
+  private void releaseWorkerAfterBackground(){
+    if(activityDestroyed && !busy)worker.shutdown();
   }
 
   @Override protected void onDestroy(){
-    stopScan.set(true);
+    activityDestroyed=true;
     if(hudFrameView!=null)hudFrameView.setImageDrawable(null);
     if(hudMarkedSample!=null){hudMarkedSample.recycle();hudMarkedSample=null;}
     if(hudSample!=null){hudSample.recycle();hudSample=null;}
-    if(transformer!=null){try{transformer.cancel();}catch(Exception ignored){}}
-    worker.shutdownNow();
+    if(!busy){
+      stopScan.set(true);
+      if(transformer!=null){try{transformer.cancel();}catch(Exception ignored){}}
+      worker.shutdownNow();
+    }
+    // Keep the V8.3 scanner/Transformer alive while the foreground
+    // service protects this process after the Activity closes.
     super.onDestroy();
   }
 }
