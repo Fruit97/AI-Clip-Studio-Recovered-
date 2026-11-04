@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
@@ -48,6 +49,7 @@ import androidx.media3.transformer.VideoEncoderSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import com.google.android.gms.tasks.Tasks;
@@ -133,7 +135,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V4",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V5",26,TEXT));
     root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -154,9 +156,9 @@ public class MainActivity extends Activity {
     });
 
     root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
-    root.addView(label("V4 ค้นแบนเนอร์คิลเหมือน V2 เพื่อไม่พลาดคิลฮีโร่ • ตัดออกเมื่อ OCR ยืนยันว่าเป็นมังกร/บอส/ครีป • จุดที่อ่านไม่ชัดต้องตรวจด้วยตัวเอง",13,MUTED));
+    root.addView(label("V5 นับจากจำนวนคิลส่วนตัวใน KDA ไม่ใช่แค่แถบมอนสเตอร์ • คิลติดกันนับแยก • ถ้า KDA อ่านไม่ได้ จะให้ตรวจแบนเนอร์ที่ยังไม่ยืนยัน",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI ค้นหาคิล V4",scanRow,v->scanForKills());
+    scanButton=button("AI ตรวจ KDA ฆ่าฮีโร่ V5",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -186,7 +188,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V4 แก้ V3 ไม่พบคิลด้วยการคืนตัวตรวจแบนเนอร์ V2 • กรองมอนสเตอร์เฉพาะเมื่อพบหลักฐานจากข้อความ • จุดไม่ชัดอาจเป็นมอนสเตอร์/คิลเพื่อน • ตรวจรายการก่อนเรนเดอร์",13,MUTED));
+    root.addView(label("หมายเหตุ: V5 จำนวนคิลขึ้นกับวิดีโอจริง ไม่ตั้งค่า 9 หรือ 10 จุดตายตัว • การอ่าน KDA จาก HUD ยังเป็นรุ่นทดสอบ กรุณาตรวจจำนวนก่อนเรนเดอร์",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -290,121 +292,199 @@ public class MainActivity extends Activity {
    * English can have stronger text evidence; Thai is *visual candidate only* because
    * bundled ML Kit Latin OCR does not support Thai script.
    */
+  /** Read the personal K/D/A numerals from the in-game top HUD, not team score. */
+  private KdaCounter.Observation readPersonalKda(Bitmap frame,TextRecognizer recognizer)
+      throws Exception {
+    int w=frame.getWidth(),h=frame.getHeight();
+    int left=(int)(w*.40f);
+    int cw=w-left;
+    int ch=Math.max(1,(int)(h*.16f));
+    Bitmap crop=null,upscaled=null;
+    try {
+      crop=Bitmap.createBitmap(frame,left,0,cw,ch);
+      upscaled=Bitmap.createScaledBitmap(crop,cw*2,ch*2,true);
+      Text ocr=Tasks.await(recognizer.process(InputImage.fromBitmap(upscaled,0)));
+      List<KdaCounter.NumberBox> boxes=new ArrayList<>();
+      for(Text.TextBlock block:ocr.getTextBlocks()){
+        for(Text.Line line:block.getLines()){
+          for(Text.Element element:line.getElements()){
+            Rect bounds=element.getBoundingBox();
+            if(bounds==null)continue;
+            String number=element.getText().trim();
+            if(number.matches("[0-9]{1,2}")){
+              int n=Integer.parseInt(number);
+              float x=(left + bounds.exactCenterX()*.5f)/w;
+              float y=bounds.exactCenterY()*.5f/h;
+              boxes.add(new KdaCounter.NumberBox(n,x,y));
+            } else if(number.matches("[0-9]{1,2}[/\\\\-][0-9]{1,2}[/\\\\-][0-9]{1,2}")){
+              // Some fonts OCR the full K/D/A string as one element.
+              String[] fields=number.split("[/\\\\-]");
+              float mid=(left + bounds.exactCenterX()*.5f)/w;
+              float y=bounds.exactCenterY()*.5f/h;
+              for(int i=0;i<3;i++)
+                boxes.add(new KdaCounter.NumberBox(
+                    Integer.parseInt(fields[i]),mid+(i-1)*.043f,y));
+            }
+          }
+        }
+      }
+      return KdaCounter.parse(boxes);
+    }finally{
+      if(upscaled!=null)upscaled.recycle();
+      if(crop!=null)crop.recycle();
+    }
+  }
+
   private void scanForKills() {
     if(busy || videoUri==null)return;
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V4 กำลังค้นแบนเนอร์คิลด้วยระบบ V2 ที่แก้ไขแล้ว ทุก 0.4 วินาที…");
+    setStatus("V5 ตรวจ KDA จำนวนคิลส่วนตัว + แบนเนอร์ประกาศคิล…");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
       MediaMetadataRetriever retriever=new MediaMetadataRetriever();
       TextRecognizer recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-      KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
-      List<KillMark> detected=new ArrayList<>();
-      int frameErrors=0;
-      int ocrErrors=0;
-      int scanned=0;
+      KillVisionV2.Tracker bannerTracker=new KillVisionV2.Tracker();
+      KdaCounter.Tracker personalKda=new KdaCounter.Tracker();
+      List<KillMark> banners=new ArrayList<>();
+      List<KdaCounter.Kill> kdaKills=new ArrayList<>();
+      int frameErrors=0,ocrErrors=0,scanned=0;
       try {
         retriever.setDataSource(this,uri);
         final int step=KillVisionV2.SAMPLE_INTERVAL_MS;
         final long count=Math.max(1,(duration+step-1)/step);
         int[] pixels=null;
-        long lastOcrMs=-10000;
-        for(long i=0;i<count && !stopScan.get();i++){
+        long lastBannerOcrMs=-10000;
+        for(long i=0;i<count && !stopScan.get();i++) {
           long atMs=Math.min(duration-1,i*step);
-          Bitmap frame=null;
-          Bitmap topCrop=null;
+          Bitmap frame=null,bannerCrop=null;
           try {
             frame=retriever.getScaledFrameAtTime(atMs*1000L,
-                  MediaMetadataRetriever.OPTION_CLOSEST,960,540);
-            if(frame==null) {frameErrors++;continue;}
-            int width=frame.getWidth(),height=frame.getHeight();
-            if(pixels==null||pixels.length<width*height) pixels=new int[width*height];
-            frame.getPixels(pixels,0,width,0,0,width,height);
-            KillVisionV2.VisualSignal vision=KillVisionV2.analyze(pixels,width,height);
-            boolean shouldOcr=(i%3==0 || vision.score>=.47) &&
-                              atMs-lastOcrMs>=700;
-            KillVisionV2.TextSignal text=KillVisionV2.parseText("");
-            if(shouldOcr){
-              lastOcrMs=atMs;
-              int x=(int)(width*.10);
-              int y=(int)(height*.055);
-              int cw=Math.max(1,(int)(width*.80));
-              int ch=Math.max(1,(int)(height*.32));
-              cw=Math.min(cw,width-x);ch=Math.min(ch,height-y);
-              topCrop=Bitmap.createBitmap(frame,x,y,cw,ch);
+                MediaMetadataRetriever.OPTION_CLOSEST,960,540);
+            if(frame==null){frameErrors++;continue;}
+            int w=frame.getWidth(),h=frame.getHeight();
+            if(pixels==null||pixels.length<w*h)pixels=new int[w*h];
+            frame.getPixels(pixels,0,w,0,0,w,h);
+            KillVisionV2.VisualSignal visual=KillVisionV2.analyze(pixels,w,h);
+            if(i%3==0) {
               try {
-                String words=Tasks.await(recognizer.process(
-                     InputImage.fromBitmap(topCrop,0))).getText();
-                text=KillVisionV2.parseText(words);
-              }catch(Exception ocrFailure){ocrErrors++;}
+                KdaCounter.Observation current=readPersonalKda(frame,recognizer);
+                kdaKills.addAll(personalKda.feed(atMs,current));
+              }catch(Exception e){ocrErrors++;}
             }
-            KillVisionV2.Candidate candidate=tracker.feed(atMs,vision,text);
-            if(candidate!=null) {
+            KillVisionV2.TextSignal words=KillVisionV2.parseText("");
+            boolean shouldBannerOcr=(visual.score>=.46||i%4==0) &&
+                                     atMs-lastBannerOcrMs>=1150;
+            if(shouldBannerOcr){
+              lastBannerOcrMs=atMs;
+              int x=(int)(w*.10),y=(int)(h*.052);
+              int cw=Math.min(w-x,Math.max(1,(int)(w*.80)));
+              int ch=Math.min(h-y,Math.max(1,(int)(h*.34)));
+              bannerCrop=Bitmap.createBitmap(frame,x,y,cw,ch);
+              try {
+                String text=Tasks.await(recognizer.process(
+                    InputImage.fromBitmap(bannerCrop,0))).getText();
+                words=KillVisionV2.parseText(text);
+              }catch(Exception e){ocrErrors++;}
+            }
+            KillVisionV2.Candidate visualMark=bannerTracker.feed(atMs,visual,words);
+            if(visualMark!=null){
               boolean duplicate=false;
-              for(KillMark existing:detected)
-                if(Math.abs(existing.when-candidate.timestampMs)<1500L){duplicate=true;break;}
-              if(!duplicate)detected.add(new KillMark(candidate.timestampMs,
-                   candidate.reason));
+              for(KillMark old:banners)
+                if(Math.abs(old.when-visualMark.timestampMs)<700L) {duplicate=true;break;}
+              if(!duplicate)banners.add(new KillMark(visualMark.timestampMs,visualMark.reason));
             }
             scanned++;
-          }catch(Exception frameFailure){frameErrors++;}
-          finally {
-            if(topCrop!=null)topCrop.recycle();
+          }catch(Exception e){frameErrors++;}
+          finally{
+            if(bannerCrop!=null)bannerCrop.recycle();
             if(frame!=null)frame.recycle();
           }
-          if(i%5==0 || i==count-1){
-            final int percent=(int)Math.min(100,100*(i+1)/count);
-            final long second=atMs;
-            final int found=detected.size();
+          if(i%6==0 || i==count-1){
+            final int pct=(int)Math.min(100,100*(i+1)/count);
+            final long seenMs=atMs;
+            final int verified=kdaKills.size(),unverified=banners.size();
             main.post(()->{
               if(!scanning)return;
-              progress.setProgress(percent);
-              setStatus("สแกน "+percent+"% • "+HighlightPlanner.format(second)+
+              progress.setProgress(pct);
+              setStatus("สแกน "+pct+"% • "+HighlightPlanner.format(seenMs)+
                  " / "+HighlightPlanner.format(duration)+
-                 " • พบจุดที่อาจเป็นคิล "+found+" จุด");
+                 " • KDA ยืนยัน "+verified+" คิล • แบนเนอร์ "+unverified+" จุด");
             });
           }
         }
-        // Flush a final eligible hero candidate near the end of the clip.
-        if(!stopScan.get()) {
-          KillVisionV2.Candidate tail=tracker.finish(duration+1600L);
-          if(tail!=null) {
-            boolean duplicate=false;
-            for(KillMark m:detected)
-              if(Math.abs(m.when-tail.timestampMs)<1500L){duplicate=true;break;}
-            if(!duplicate)detected.add(new KillMark(tail.timestampMs,tail.reason));
+        if(!stopScan.get()){
+          KillVisionV2.Candidate tail=bannerTracker.finish(duration+1600L);
+          if(tail!=null) banners.add(new KillMark(tail.timestampMs,tail.reason));
+        }
+        // KDA deltas are decisive. Use banner timestamps only to improve timing.
+        // Never infer that a monster kill is a personal hero elimination.
+        List<KillMark> output=new ArrayList<>();
+        if(!kdaKills.isEmpty()){
+          boolean[] used=new boolean[banners.size()];
+          for(KdaCounter.Kill kill:kdaKills) {
+            long when=kill.atMs;
+            int nearest=-1;
+            long gap=2600L;
+            for(int j=0;j<banners.size();j++){
+              if(used[j])continue;
+              long distance=Math.abs(banners.get(j).when-when);
+              if(distance<gap){nearest=j;gap=distance;}
+            }
+            if(nearest>=0){
+              when=banners.get(nearest).when;
+              used[nearest]=true;
+            }
+            KillMark m=new KillMark(when,"KDA ยืนยันคิลฮีโร่ของเรา #"+
+                kill.individualTotal+(kill.inferred?" (คิลติดกัน)":""));
+            output.add(m);
+          }
+        } else {
+          // No reliable personal KDA: keep *proposed* video banner times visible,
+          // but do not auto-select monsters or teammate kills as own kills.
+          for(KillMark candidate:banners){
+            candidate.enabled=false;
+            candidate.reason="ยังไม่ยืนยัน (ต้องเช็กว่าเป็นคิลฮีโร่): "+candidate.reason;
+            output.add(candidate);
           }
         }
+        final int imagesFailed=frameErrors,ocrFailed=ocrErrors,framesDone=scanned;
+        final int verified=kdaKills.size(),suggested=banners.size();
+        final boolean calibrated=personalKda.isCalibrated();
         final boolean cancelled=stopScan.get();
-        final int badFrames=frameErrors, badOcr=ocrErrors;
-        final int goodFrames=scanned;
         main.post(()->{
-          for(KillMark hit:detected) {
-            boolean duplicate=false;
-            for(KillMark old:marks)
-              if(Math.abs(old.when-hit.when)<1500L){duplicate=true;break;}
-            if(!duplicate) marks.add(hit);
-          }
+          // Preserve manually-added marks, replace previous automatic proposals.
+          marks.removeIf(mark->mark.reason.startsWith("KDA ") ||
+              mark.reason.startsWith("AI ") ||
+              mark.reason.startsWith("ภาพแบนเนอร์") ||
+              mark.reason.startsWith("ยังไม่ยืนยัน"));
+          marks.addAll(output);
           scanning=false;busy=false;
           getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-          progress.setProgress(cancelled?progress.getProgress():100);
+          if(!cancelled)progress.setProgress(100);
           renderMarks();
-          String note="พบจุดคิลที่เป็นไปได้ "+detected.size()+
-            " จุด • ต้องตรวจว่าเป็นคิลของเราก่อนเรนเดอร์";
-          if(badFrames>0 || badOcr>0)
-             note+=" • ภาพอ่านพลาด "+badFrames+" / OCR พลาด "+badOcr+" เฟรม";
-          if(goodFrames==0) note="ไม่สามารถถอดเฟรมวิดีโอได้ กรุณาลองไฟล์ MP4 H.264";
-          setStatus((cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+note);
+          String summary;
+          if(verified>0)
+            summary="KDA ยืนยันจำนวนคิลฮีโร่ "+verified+
+                " คิล • สร้าง "+verified+" ช็อต (คิลติดกันไม่ถูกควบรวม)";
+          else if(calibrated)
+            summary="อ่าน KDA ได้ แต่ยังไม่พบจำนวนคิลส่วนตัวเพิ่ม • มีแบนเนอร์ที่ไม่ยืนยัน "+suggested+" จุด";
+          else
+            summary="ยังอ่านตำแหน่ง KDA ส่วนตัวไม่สำเร็จ • พบแบนเนอร์ "+suggested+
+                " จุด ซึ่งยกเลิกเลือกไว้เพื่อป้องกันตัดมอนสเตอร์ผิด";
+          if(framesDone==0)summary="ไม่สามารถถอดภาพคลิปได้ ตรวจสอบไฟล์ MP4 ที่เปิดได้";
+          if(imagesFailed>0||ocrFailed>0)
+            summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
+          setStatus((cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
         });
-      }catch(Exception problem){
+      }catch(Exception error){
         main.post(()->{
           scanning=false;busy=false;
           getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
           refreshButtons();
-          setStatus("สแกนล้มเหลว: "+problem.getMessage());
+          setStatus("สแกนผิดพลาด: "+error.getMessage());
         });
       }finally{
         try{retriever.release();}catch(Exception ignored){}
