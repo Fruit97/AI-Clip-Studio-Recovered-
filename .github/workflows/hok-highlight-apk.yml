@@ -1,7 +1,7 @@
-name: HOK Highlight AI V5 APK
+name: HOK Highlight AI V6 APK
 on:
   push:
-    branches: [hok-highlight-apk-v5]
+    branches: [hok-highlight-apk-v6]
     paths:
       - 'hok-highlight-android/**'
       - '.github/workflows/hok-highlight-apk.yml'
@@ -44,7 +44,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: HOK-Highlight-AI-APK-V5
+          name: HOK-Highlight-AI-APK-V6
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -54,9 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v5.apk
-          if gh release view hok-highlight-ai-v5 >/dev/null 2>&1; then
-            gh release upload hok-highlight-ai-v5 HOK-Highlight-AI-Pad6-v5.apk --clobber
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v6.apk
+          if gh release view hok-highlight-ai-v6 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v6 HOK-Highlight-AI-Pad6-v6.apk --clobber
           else
-            gh release create hok-highlight-ai-v5 HOK-Highlight-AI-Pad6-v5.apk --target hok-highlight-apk-v5 --title 'HOK Highlight AI Pad6 v5.0' --notes 'V5 beta: individual KDA counter changes drive confirmed hero kill clip counts. No fixed shot count; close kills no longer merge. Visual-only detections remain deselected. Requires user verification.'
+            gh release create hok-highlight-ai-v6 HOK-Highlight-AI-Pad6-v6.apk --target hok-highlight-apk-v6 --title 'HOK Highlight AI Pad6 v6.0' --notes 'V6 experimental: stable triple OCR for personal KDA, filter death-only (D increases) and simultaneous kill+death intervals; retain ambiguous moments unchecked. One clip per individual kill, never infer own kill from monster banners. Requires real-game validation.'
           fi
