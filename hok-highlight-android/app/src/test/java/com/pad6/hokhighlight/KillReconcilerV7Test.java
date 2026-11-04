@@ -135,6 +135,19 @@ public class KillReconcilerV7Test {
     assertEquals(37000L,cuts.get(1).startMs);
     assertEquals(45000L,cuts.get(1).endMs);
   }
+  @Test public void swordJumpWithoutIntermediateTimestampsIsReviewOnly() {
+    SwordCounterTracker t=new SwordCounterTracker();
+    t.pinSword(.829f,.060f);
+    for(int i=0;i<3;i++)assertTrue(t.feed(400L*i,null,0).isEmpty());
+    assertTrue(t.feed(10000L,null,2).isEmpty());
+    assertTrue(t.feed(10400L,null,2).isEmpty());
+    List<KdaCounter.Kill> jumps=t.feed(10800L,null,2);
+    List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(
+        jumps,Collections.emptyList(),Collections.emptyList());
+    assertEquals(2,d.size());
+    assertEquals(0,selected(d));
+  }
+
   @Test public void bannersWithoutKIncrementProduceNothing() {
     assertTrue(KillReconcilerV7.reconcile(Collections.emptyList(),
       Arrays.asList(b(10000,"double kill"),b(13000,"objective:tyrant"),

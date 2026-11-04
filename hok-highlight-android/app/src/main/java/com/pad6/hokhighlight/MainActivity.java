@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
@@ -21,8 +23,10 @@ import android.provider.OpenableColumns;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -73,6 +77,10 @@ public class MainActivity extends Activity {
   private static final int BG = Color.rgb(10, 16, 30);
   private static final int TEXT = Color.rgb(243, 247, 255);
   private static final int MUTED = Color.rgb(163, 179, 199);
+  // Show the top-right HUD enlarged, not the whole gameplay frame, so the
+  // number next to the sword is large enough to tap on a tablet.
+  private static final float HUD_LEFT=.32f,HUD_TOP=0f;
+  private static final float HUD_WIDTH=.68f,HUD_HEIGHT=.27f;
   private final Handler main = new Handler(Looper.getMainLooper());
   private final ExecutorService worker = Executors.newSingleThreadExecutor();
   private final AtomicBoolean stopScan = new AtomicBoolean(false);
@@ -85,6 +93,11 @@ public class MainActivity extends Activity {
   private ProgressBar progress;
   private LinearLayout markList;
   private VideoView preview;
+  private ImageView hudFrameView;
+  private TextView hudPinHint;
+  private Bitmap hudSample, hudMarkedSample;
+  private float pinnedSwordX=-1f,pinnedSwordY=-1f;
+  private boolean capturingHud=false;
   private EditText timeInput;
   private Button scanButton, cancelButton, exportButton;
   private Transformer transformer;
@@ -136,7 +149,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V7.7",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V8.0",26,TEXT));
     root.addView(label("ต่อ 1 คิล: 5 วินาทีก่อน + 3 วินาทีหลัง (สูงสุด 8 วินาที)\nอิงเลข K ข้างรูปดาบ • ทำงานในเครื่อง ไม่อัปโหลดวิดีโอ",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -152,14 +165,54 @@ public class MainActivity extends Activity {
     root.addView(preview,new LinearLayout.LayoutParams(-1,dp(215)));
     preview.setMediaController(new MediaController(this));
     preview.setOnErrorListener((mp,what,extra)->{
-      setStatus("เปิดภาพตัวอย่างไม่ได้ ("+what+") แต่ลองเพิ่มเวลาคิลด้วยตัวเลขได้");
+      setStatus("เปิดวิดีโอพรีวิวไม่ได้ ("+what+") • ใช้ภาพ HUD ด้านล่างแทนได้");
+      return true;
+    });
+
+    root.addView(label("ภาพเกมสำหรับยืนยันเลขดาบ (ใช้เมื่อค้นหาอัตโนมัติไม่เจอ)",17,TEXT));
+    root.addView(label("ภาพนี้ขยายเฉพาะแถบ HUD ด้านบน • ถ้าไม่พบคิล ให้แตะตัวเลขสีขาวทางขวาของรูปดาบ 1 ครั้ง ไม่ใช่รูปดาบ",13,MUTED));
+    LinearLayout hudRow=row(root);
+    button("แสดงภาพจากเวลาที่เล่น",hudRow,v->captureHudFrame());
+    button("กลับไปค้นหาอัตโนมัติ",hudRow,v->{
+      if(busy)return;
+      pinnedSwordX=-1f;pinnedSwordY=-1f;
+      updateHudMarker();
+      hudPinHint.setText("โหมดอัตโนมัติ • ถ้าหา K ไม่เจอ ให้แตะเลขข้างรูปดาบบนภาพ");
+    });
+    hudFrameView=new ImageView(this);
+    hudFrameView.setBackgroundColor(Color.BLACK);
+    hudFrameView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    hudFrameView.setAdjustViewBounds(false);
+    root.addView(hudFrameView,new LinearLayout.LayoutParams(-1,dp(215)));
+    hudPinHint=label("โหมดอัตโนมัติ • แตะเลขข้างรูปดาบได้เมื่อภาพปรากฏ",13,MUTED);
+    root.addView(hudPinHint);
+    hudFrameView.setOnTouchListener((view,event)->{
+      if(event.getAction()!=MotionEvent.ACTION_UP)return true;
+      if(hudSample==null || busy)return true;
+      float vw=hudFrameView.getWidth(),vh=hudFrameView.getHeight();
+      if(vw<=0||vh<=0)return true;
+      float scale=Math.min(vw/hudSample.getWidth(),vh/hudSample.getHeight());
+      float ox=(vw-hudSample.getWidth()*scale)/2f;
+      float oy=(vh-hudSample.getHeight()*scale)/2f;
+      float localX=(event.getX()-ox)/(scale*hudSample.getWidth());
+      float localY=(event.getY()-oy)/(scale*hudSample.getHeight());
+      if(localX<0f || localX>1f || localY<0f || localY>1f)return true;
+      float x=HUD_LEFT+localX*HUD_WIDTH;
+      float y=HUD_TOP+localY*HUD_HEIGHT;
+      if(x<.15f || x>.99f || y<.01f || y>.35f){
+        hudPinHint.setText("ให้แตะตัวเลข K ข้างรูปดาบตรงแถบบนของเกมเท่านั้น");
+        return true;
+      }
+      pinnedSwordX=x;pinnedSwordY=y;
+      updateHudMarker();
+      hudPinHint.setText("ล็อกตำแหน่งเลขดาบแล้ว • กดตรวจเลขดาบเพื่อสแกน (แตะภาพอีกครั้งเพื่อปรับ)");
       return true;
     });
 
     root.addView(label("1. ตรวจเลขดาบ K (ของผู้เล่น) เท่านั้น",18,TEXT));
     root.addView(label("ดูเลขดาบเปลี่ยน 0→1→2→3 เท่านั้น • กะโหลก D = ตาย • หมัด A = แอสซิสต์ • ไม่ใช้แบนเนอร์เป็นจุดตัด",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("ตรวจเลขดาบ K V7.7",scanRow,v->scanForKills());
+    scanButton=button("ตรวจคิลจากเลขดาบ V8.0",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -189,7 +242,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V7.7 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
+    root.addView(label("V8.0: เลขดาบ K เพิ่มจึงเลือกตัด • ถ้าเลข K กระโดดหลายค่าแต่ระบุเวลาแต่ละคิลไม่ได้ จะให้ตรวจเอง ไม่เดาช็อต • ตัดก่อน 5 วินาที หลัง 3 วินาที",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -228,6 +281,11 @@ public class MainActivity extends Activity {
       if(dur<=0) throw new IllegalArgumentException("ไม่มีข้อมูลเวลาวิดีโอ");
       if(dur>45*60*1000L) {setStatus("คลิปนี้ยาวเกิน 45 นาที");return;}
       durationMs=dur; videoUri=uri; marks.clear(); ownDeathTimes.clear();
+      pinnedSwordX=-1f;pinnedSwordY=-1f;
+      if(hudMarkedSample!=null){hudMarkedSample.recycle();hudMarkedSample=null;}
+      if(hudSample!=null){hudSample.recycle();hudSample=null;}
+      hudFrameView.setImageDrawable(null);
+      hudPinHint.setText("กำลังแสดงตัวอย่างภาพ HUD ...");
       String fps="ไม่ทราบ";
       try {
         String rate=retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
@@ -240,9 +298,81 @@ public class MainActivity extends Activity {
       preview.seekTo(0);
       renderMarks();progress.setProgress(0);
       setStatus("นำเข้าวิดีโอสำเร็จ พร้อมสแกนคิล");
+      captureHudFrameAt(Math.min(durationMs-1,1500L));
     } catch(Exception e) {setStatus("อ่านวิดีโอไม่ได้: "+e.getMessage());}
     finally {try {retriever.release();} catch(Exception ignored) {}}
     refreshButtons();
+  }
+
+  /** Decode a REAL video frame for precise one-tap HUD calibration. */
+  private void captureHudFrame(){
+    if(videoUri==null || busy || capturingHud)return;
+    long at=preview==null?0L:preview.getCurrentPosition();
+    captureHudFrameAt(at<=0?Math.min(durationMs-1,1500L):at);
+  }
+  private void captureHudFrameAt(long atMs){
+    if(videoUri==null || busy || capturingHud)return;
+    capturingHud=true;
+    final Uri source=videoUri;
+    hudPinHint.setText("กำลังอ่านเฟรมเกมที่ "+HighlightPlanner.format(atMs)+" ...");
+    worker.execute(()->{
+      MediaMetadataRetriever r=new MediaMetadataRetriever();
+      Bitmap still=null;
+      try{
+        r.setDataSource(this,source);
+        still=r.getScaledFrameAtTime(atMs*1000L,
+            MediaMetadataRetriever.OPTION_CLOSEST,1600,900);
+        if(still!=null) {
+          int x=Math.max(0,(int)(still.getWidth()*HUD_LEFT));
+          int y=Math.max(0,(int)(still.getHeight()*HUD_TOP));
+          int cw=Math.min(still.getWidth()-x,
+              Math.max(1,(int)(still.getWidth()*HUD_WIDTH)));
+          int ch=Math.min(still.getHeight()-y,
+              Math.max(1,(int)(still.getHeight()*HUD_HEIGHT)));
+          Bitmap strip=Bitmap.createBitmap(still,x,y,cw,ch);
+          if(strip!=still)still.recycle();
+          still=strip;
+        }
+      }catch(Exception ignored){}
+      finally{try{r.release();}catch(Exception ignored){}}
+      final Bitmap image=still;
+      main.post(()->{
+        capturingHud=false;
+        if(videoUri==null || !videoUri.equals(source)){
+          if(image!=null)image.recycle();
+          return;
+        }
+        if(image==null){
+          hudPinHint.setText("ไม่สามารถถอดภาพเกมได้ • ลองเลื่อนเวลาเล่นแล้วกดแสดงภาพอีกครั้ง");
+          return;
+        }
+        hudFrameView.setImageDrawable(null);
+        if(hudMarkedSample!=null){hudMarkedSample.recycle();hudMarkedSample=null;}
+        if(hudSample!=null)hudSample.recycle();
+        hudSample=image;
+        updateHudMarker();
+        hudPinHint.setText(pinnedSwordX>=0?"ล็อกตำแหน่งเลขดาบไว้แล้ว • กดสแกน":
+            "แตะตัวเลขข้างรูปดาบบนภาพ (ห้ามแตะไอคอน) แล้วกดสแกน");
+      });
+    });
+  }
+  private void updateHudMarker(){
+    if(hudFrameView==null)return;
+    if(hudMarkedSample!=null){hudFrameView.setImageDrawable(null);
+      hudMarkedSample.recycle();hudMarkedSample=null;}
+    if(hudSample==null){hudFrameView.setImageDrawable(null);return;}
+    if(pinnedSwordX<0){hudFrameView.setImageBitmap(hudSample);return;}
+    Bitmap.Config cfg=Bitmap.Config.ARGB_8888;
+    hudMarkedSample=hudSample.copy(cfg,true);
+    Canvas canvas=new Canvas(hudMarkedSample);
+    Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+    paint.setStyle(Paint.Style.STROKE);
+    paint.setStrokeWidth(Math.max(3f,hudSample.getWidth()/300f));
+    paint.setColor(Color.rgb(60,225,120));
+    canvas.drawCircle(((pinnedSwordX-HUD_LEFT)/HUD_WIDTH)*hudSample.getWidth(),
+        ((pinnedSwordY-HUD_TOP)/HUD_HEIGHT)*hudSample.getHeight(),
+        Math.max(13f,hudSample.getWidth()*.017f),paint);
+    hudFrameView.setImageBitmap(hudMarkedSample);
   }
 
   private void addFromText() {
@@ -287,67 +417,96 @@ public class MainActivity extends Activity {
     refreshButtons();
   }
 
-  /**
-   * Full HUD OCR establishes the sword/skull/fist row once. After that,
-   * single-frame sword OCR continues working even when D or A disappears
-   * from ML Kit's text output. It never scans monster kill banners.
-   */
   private static final class HudRead {
     final KdaCounter.Observation full;
     final int sword;
-    HudRead(KdaCounter.Observation value,int k){full=value;sword=k;}
+    HudRead(KdaCounter.Observation full,int sword){
+      this.full=full;this.sword=sword;
+    }
   }
 
+  /** White HOK HUD numerals into black glyphs on white for a second OCR try. */
+  private Bitmap contrastDigits(Bitmap image) {
+    int w=image.getWidth(),h=image.getHeight();
+    int[] pixels=new int[w*h];
+    image.getPixels(pixels,0,w,0,0,w,h);
+    for(int i=0;i<pixels.length;i++){
+      int c=pixels[i],r=Color.red(c),g=Color.green(c),b=Color.blue(c);
+      int lum=(r*3+g*6+b)/10;
+      int max=Math.max(r,Math.max(g,b));
+      int min=Math.min(r,Math.min(g,b));
+      pixels[i]=lum>=160 && (max-min)<100 ? Color.BLACK:Color.WHITE;
+    }
+    Bitmap out=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
+    out.setPixels(pixels,0,w,0,0,w,h);
+    return out;
+  }
+
+  /**
+   * Only read the full HUD periodically after the sword number has been
+   * located. The focused number OCR runs on every sampled video frame.
+   */
   private HudRead readPersonalHud(Bitmap frame,TextRecognizer recognizer,
-      float swordX,float swordY) throws Exception {
+      float swordX,float swordY,boolean fullScan) throws Exception {
     int w=frame.getWidth(),h=frame.getHeight();
-    int left=(int)(w*.35f),cw=w-left;
-    int ch=Math.max(1,(int)(h*.27f));
-    Bitmap crop=null,upscaled=null,focus=null,focusScaled=null;
-    try {
-      crop=Bitmap.createBitmap(frame,left,0,cw,ch);
-      upscaled=Bitmap.createScaledBitmap(crop,cw*2,ch*2,true);
-      Text ocr=Tasks.await(recognizer.process(InputImage.fromBitmap(upscaled,0)));
-      List<KdaHudOcr.Line> lines=new ArrayList<>();
-      for(Text.TextBlock block:ocr.getTextBlocks())
-        for(Text.Line line:block.getLines()){
-          Rect rect=line.getBoundingBox();
-          if(rect!=null)
-            lines.add(new KdaHudOcr.Line(line.getText(),
-                (left+rect.exactCenterX()*.5f)/w,
-                rect.exactCenterY()*.5f/h));
-          for(Text.Element elem:line.getElements()){
-            Rect er=elem.getBoundingBox();
-            if(er!=null)
-              lines.add(new KdaHudOcr.Line(elem.getText(),
-                  (left+er.exactCenterX()*.5f)/w,
-                  er.exactCenterY()*.5f/h));
+    Bitmap crop=null,upscaled=null,focus=null,focusScaled=null,contrast=null;
+    KdaCounter.Observation full=null;
+    List<KdaHudOcr.Line> lines=new ArrayList<>();
+    try{
+      if(fullScan){
+        int left=(int)(w*.35f),cw=w-left;
+        int ch=Math.max(1,(int)(h*.27f));
+        crop=Bitmap.createBitmap(frame,left,0,cw,ch);
+        upscaled=Bitmap.createScaledBitmap(crop,cw*2,ch*2,true);
+        Text ocr=Tasks.await(recognizer.process(InputImage.fromBitmap(upscaled,0)));
+        for(Text.TextBlock block:ocr.getTextBlocks())
+          for(Text.Line line:block.getLines()){
+            Rect rect=line.getBoundingBox();
+            if(rect!=null)
+              lines.add(new KdaHudOcr.Line(line.getText(),
+                  (left+rect.exactCenterX()*.5f)/w,
+                  rect.exactCenterY()*.5f/h));
+            for(Text.Element elem:line.getElements()){
+              Rect er=elem.getBoundingBox();
+              if(er!=null)
+                lines.add(new KdaHudOcr.Line(elem.getText(),
+                    (left+er.exactCenterX()*.5f)/w,
+                    er.exactCenterY()*.5f/h));
+            }
           }
-        }
-      KdaCounter.Observation full=KdaHudOcr.parse(lines);
-      int sword=KdaHudOcr.parseSword(lines,swordX,swordY);
-      // A targeted OCR crop is a fallback ONLY after a full triple was
-      // calibrated to the game HUD. Do not read random unlocated numbers.
-      if(sword<0 && swordX>=0f && swordY>=0f){
-        int fw=Math.max(16,(int)(w*.052f));
-        int fh=Math.max(14,(int)(h*.055f));
+        full=KdaHudOcr.parse(lines);
+      }
+      int broadSword=KdaHudOcr.parseSword(lines,swordX,swordY);
+      int focusedSword=-1;
+      if(swordX>=0f && swordY>=0f){
+        int fw=Math.max(24,(int)(w*.040f));
+        int fh=Math.max(22,(int)(h*.060f));
         int x=Math.max(0,Math.min(w-fw,(int)(swordX*w)-fw/2));
         int y=Math.max(0,Math.min(h-fh,(int)(swordY*h)-fh/2));
         focus=Bitmap.createBitmap(frame,x,y,fw,fh);
-        focusScaled=Bitmap.createScaledBitmap(focus,fw*4,fh*4,true);
+        focusScaled=Bitmap.createScaledBitmap(focus,fw*5,fh*5,true);
         Text isolated=Tasks.await(recognizer.process(
             InputImage.fromBitmap(focusScaled,0)));
-        sword=KdaHudOcr.parseSingle(isolated.getText());
-        if(sword<0){
+        focusedSword=KdaHudOcr.parseSingle(isolated.getText());
+        if(focusedSword<0)
           for(Text.TextBlock block:isolated.getTextBlocks())
             for(Text.Line line:block.getLines()){
               int n=KdaHudOcr.parseSingle(line.getText());
-              if(n>=0){sword=n;break;}
+              if(n>=0){focusedSword=n;break;}
             }
+        if(focusedSword<0){
+          contrast=contrastDigits(focusScaled);
+          Text retry=Tasks.await(recognizer.process(InputImage.fromBitmap(contrast,0)));
+          focusedSword=KdaHudOcr.parseSingle(retry.getText());
         }
       }
-      return new HudRead(full,sword);
+      // If both independent OCR paths disagree, do not trust either.
+      int result=focusedSword>=0?focusedSword:broadSword;
+      if(focusedSword>=0 && broadSword>=0 && focusedSword!=broadSword)
+        result=-1;
+      return new HudRead(full,result);
     }finally{
+      if(contrast!=null)contrast.recycle();
       if(focusScaled!=null)focusScaled.recycle();
       if(focus!=null)focus.recycle();
       if(upscaled!=null)upscaled.recycle();
@@ -363,11 +522,14 @@ public class MainActivity extends Activity {
     setStatus("กำลังอ่านเลขข้างรูปดาบ K: 0→1→2 ... ไม่ใช้แบนเนอร์");
     final Uri uri=videoUri;
     final long duration=durationMs;
+    final float manualKx=pinnedSwordX,manualKy=pinnedSwordY;
     worker.execute(()->{
       MediaMetadataRetriever retriever=new MediaMetadataRetriever();
       TextRecognizer recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
       KdaCounter.Tracker personalKda=new KdaCounter.Tracker();
       SwordCounterTracker swordTracker=new SwordCounterTracker();
+      if(manualKx>=0f && manualKy>=0f)
+        swordTracker.pinSword(manualKx,manualKy);
       List<KdaCounter.Kill> kdaKills=new ArrayList<>();
       int frameErrors=0,ocrErrors=0,scanned=0,hudReads=0;
       int lastSword=-1;
@@ -386,14 +548,22 @@ public class MainActivity extends Activity {
                 MediaMetadataRetriever.OPTION_CLOSEST,1920,1080);
             if(frame==null){frameErrors++;continue;}
             try {
+              // Full K/D/A OCR for calibration; after lock, read the sword
+              // number every frame and the full strip periodically for D.
+              boolean fullScan=!swordTracker.hasLocation() || i%4==0;
               HudRead read=readPersonalHud(frame,recognizer,
-                  swordTracker.swordX(),swordTracker.swordY());
+                  swordTracker.swordX(),swordTracker.swordY(),fullScan);
               if(read.full!=null)hudReads++;
               // Only independently tracked and temporally confirmed sword
               // changes become automatic highlights.
               kdaKills.addAll(swordTracker.feed(atMs,read.full,read.sword));
-              // Full K/D/A observation is used to detect own deaths (D).
-              personalKda.feed(atMs,read.full);
+              // A random scoreboard must never become our "death" HUD.
+              // In one-tap mode only trust a full row at the tapped K column.
+              KdaCounter.Observation ownRow=read.full;
+              if(manualKx>=0f && (ownRow==null ||
+                  Math.abs(ownRow.swordX-manualKx)>.030f ||
+                  Math.abs(ownRow.y-manualKy)>.025f))ownRow=null;
+              personalKda.feed(atMs,ownRow);
               lastSword=swordTracker.confirmedKills();
             }catch(Exception e){ocrErrors++;}
             scanned++;
@@ -420,13 +590,13 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V7.7 "+decision.reason);
+              "V8.0 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V7.7 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V8.0 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -463,7 +633,8 @@ public class MainActivity extends Activity {
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V7.7 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V8.0 ") ||
+              mark.reason.startsWith("V7.7 ") ||
               mark.reason.startsWith("V7.6 ") ||
               mark.reason.startsWith("V7.5 ") ||
               mark.reason.startsWith("V7.4 ") ||
@@ -497,10 +668,15 @@ public class MainActivity extends Activity {
           summary+=" • HUD เต็ม "+fullCount+"/"+framesDone+
               " ภาพ • เลขดาบเดี่ยว "+swordReadCount+
               " ภาพ • ตำแหน่ง "+(locked?"ล็อกแล้ว":"ยังไม่ล็อก")+
+              (manualKx>=0?" (แตะเลือกแล้ว)":" (อัตโนมัติ)")+
               " • OCR ขัดแย้ง "+noise;
+          if(verified==0 && manualKx<0)
+            summary+=" • ถ้ายังไม่พบ ให้แตะตัวเลขข้างรูปดาบในภาพ HUD แล้วสแกนใหม่";
+          if(verified==0 && manualKx>=0)
+            summary+=" • ลองเลือกเฟรมที่เห็นเลข K ชัดกว่าเดิม แล้วแตะเลขใหม่";
           if(imagesFailed>0||ocrFailed>0)
             summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
-          setStatus("V7.7 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
+          setStatus("V8.0 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
         });
       }catch(Exception error){
         main.post(()->{
@@ -625,6 +801,9 @@ public class MainActivity extends Activity {
 
   @Override protected void onDestroy(){
     stopScan.set(true);
+    if(hudFrameView!=null)hudFrameView.setImageDrawable(null);
+    if(hudMarkedSample!=null){hudMarkedSample.recycle();hudMarkedSample=null;}
+    if(hudSample!=null){hudSample.recycle();hudSample=null;}
     if(transformer!=null){try{transformer.cancel();}catch(Exception ignored){}}
     worker.shutdownNow();
     super.onDestroy();

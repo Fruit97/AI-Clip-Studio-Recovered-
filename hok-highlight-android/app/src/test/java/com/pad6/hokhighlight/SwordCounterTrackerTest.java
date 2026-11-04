@@ -60,6 +60,80 @@ public class SwordCounterTrackerTest {
     assertEquals(0,t.confirmedKills());
     assertEquals(1,read(t,8000,1).size());
   }
+  @Test public void manuallyPinSwordAndReadZeroToTenWithoutFullKda(){
+    SwordCounterTracker t=new SwordCounterTracker();
+    t.pinSword(.821f,.071f);
+    assertTrue(t.isPinned());assertTrue(t.hasLocation());
+    assertEquals(.821f,t.swordX(),.00001f);
+    for(int i=0;i<3;i++)
+      assertTrue(t.feed(i*400L,null,0).isEmpty());
+    assertEquals(0,t.confirmedKills());
+    for(int k=1;k<=10;k++) {
+      List<KdaCounter.Kill> found=read(t,3000L*k,k);
+      assertEquals(1,found.size());
+      assertEquals(k,found.get(0).individualTotal);
+      assertTrue(found.get(0).trustedHud);
+    }
+  }
+
+  @Test public void pinnedFirstNumberIsBaselineNotInventedKill(){
+    SwordCounterTracker t=new SwordCounterTracker();
+    t.pinSword(.79f,.080f);
+    for(int i=0;i<3;i++)assertTrue(t.feed(i*400L,null,5).isEmpty());
+    assertEquals(5,t.confirmedKills());
+    assertEquals(1,read(t,8000L,6).size());
+  }
+
+  @Test public void pinnedFullOcrOnlyHelpsAtSameSwordNumberLocation(){
+    SwordCounterTracker t=new SwordCounterTracker();
+    t.pinSword(.827f,.070f);
+    KdaCounter.Observation near=new KdaCounter.Observation(
+        0,0,0,.867f,.070f,false,.827f);
+    for(int i=0;i<3;i++)assertTrue(t.feed(i*400L,near,-1).isEmpty());
+    assertEquals(0,t.confirmedKills());
+    KdaCounter.Observation wrong=new KdaCounter.Observation(
+        9,0,0,.715f,.070f,false,.675f);
+    for(int i=0;i<5;i++)assertTrue(t.feed(3000L+i*400L,wrong,-1).isEmpty());
+    assertEquals(0,t.confirmedKills());
+  }
+
+  @Test public void twoKilledBetweenSamplesAreReviewOnlyNotGuessed(){
+    SwordCounterTracker t=new SwordCounterTracker();
+    t.pinSword(.829f,.065f);
+    for(int i=0;i<3;i++)t.feed(i*400L,null,0);
+    List<KdaCounter.Kill> found=read(t,10000L,2);
+    assertEquals(2,found.size());
+    assertFalse(found.get(0).trustedHud);
+    assertFalse(found.get(1).trustedHud);
+    assertTrue(found.get(0).inferred);
+    assertTrue(found.get(1).inferred);
+  }
+
+  @Test public void autoHudLockSurvivesIntermittentMissingFrames(){
+    SwordCounterTracker t=new SwordCounterTracker();
+    assertTrue(t.feed(0L,full(0,0,0),-1).isEmpty());
+    for(int i=1;i<=6;i++)
+      assertTrue(t.feed(i*400L,null,-1).isEmpty());
+    assertTrue(t.feed(3200L,full(0,0,0),-1).isEmpty());
+    assertTrue(t.feed(6400L,full(0,0,0),-1).isEmpty());
+    assertTrue(t.hasLocation());
+    assertEquals(0,t.confirmedKills());
+    List<KdaCounter.Kill> found=read(t,10000L,1);
+    assertEquals(1,found.size());
+    assertEquals(1,found.get(0).individualTotal);
+  }
+
+  @Test public void pinnedNoiseAndDeathsDoNotCreateKill(){
+    SwordCounterTracker t=new SwordCounterTracker();
+    t.pinSword(.825f,.075f);
+    for(int i=0;i<3;i++)t.feed(i*400L,null,0);
+    for(int i=0;i<5;i++)
+      assertTrue(t.feed(4000L+i*400L,null,0).isEmpty());
+    assertTrue(t.feed(8000L,null,7).isEmpty());
+    assertTrue(t.feed(8400L,null,0).isEmpty());
+    assertEquals(0,t.confirmedKills());
+  }
+
   @Test public void unlocatedNumbersNeverBecomeCuts(){
     SwordCounterTracker t=new SwordCounterTracker();
     for(int i=0;i<9;i++)

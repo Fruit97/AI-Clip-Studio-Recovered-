@@ -24,14 +24,18 @@ public final class KdaCounter {
     }
     public static final class Observation {
         public final int kills,deaths,assists;
-        public final float x,y;
+        public final float x,y,swordX;
         public final boolean trusted;
         public Observation(int kills,int deaths,int assists,float x,float y){
             this(kills,deaths,assists,x,y,true);
         }
         public Observation(int kills,int deaths,int assists,float x,float y,boolean trusted){
+            this(kills,deaths,assists,x,y,trusted,x-.040f);
+        }
+        public Observation(int kills,int deaths,int assists,float x,float y,
+            boolean trusted,float swordX){
             this.kills=kills;this.deaths=deaths;this.assists=assists;
-            this.x=x;this.y=y;this.trusted=trusted;
+            this.x=x;this.y=y;this.trusted=trusted;this.swordX=swordX;
         }
         public boolean sameValues(Observation other){
             return other!=null && kills==other.kills &&
@@ -91,7 +95,7 @@ public final class KdaCounter {
                     if(score>bestScore){
                         bestScore=score;
                         best=new Observation(a.value,b.value,c.value,
-                                (float)centerX,(float)centerY,false);
+                                (float)centerX,(float)centerY,false,a.x);
                     }
                 }
             }

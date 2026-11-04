@@ -29,6 +29,7 @@ public class KdaCounterTest {
     assertEquals(7,obs.kills);
     assertEquals(3,obs.deaths);
     assertEquals(0,obs.assists);
+    assertEquals(.829f,obs.swordX,.00001f); // true first numeral column
   }
 
   @Test public void swordZeroOneTwoWithAssistAndDeathUnchanged() {

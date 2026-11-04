@@ -1,6 +1,17 @@
-# HOK Highlight AI V7.7 — focused sword tracking after HUD calibration
+# HOK Highlight AI V8.0 — HUD sword number detection with one-tap calibration
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V8.0: revised detection strategy (November 4, 2026)
+- V7.6 scanned only 82/694 frames with a complete K/D/A OCR group; V7.7 still required three consecutive full K/D/A snapshots before it knew where to look. In intermittent OCR this condition is rarely met.
+- AUTO MODE: three matching full K/D/A observations can lock the HUD **across missing frames** (bounded by a 15-second gap), not necessarily consecutive samples. The actual sword column x is recorded from the first OCR digit instead of guessing center minus 0.04.
+- ONE-TAP FALLBACK: a real frame is retrieved using Android MediaMetadataRetriever and the top-right HUD strip is displayed enlarged, independently of the VideoView player, which may initially appear black. User taps the NUMBER next to the sword icon to lock a stable normalized video coordinate. This does not require rooting or network/API keys.
+- With the sword column pinned or auto-located, the app OCRs the focused K digit on each sampled frame, and checks the full K/D/A row periodically to recognize own deaths. The focused crop is enlarged 5× with a high-contrast retry for white digits.
+- K must increase and remain stable for three readings. 0->1 and 1->2 give one automatically selected shot per increment. D/A changes alone, monsters, objectives and team kill banners do not create auto shots.
+- OCR jumps such as 0->2 without intermediate timestamps are **review-only**, since the exact two kill times cannot be reliably derived; the app will no longer silently invent times.
+- The exported shot remains at 5 s BEFORE the K change and 3 s AFTER, with a trim before recognized own deaths; source boundary clamping stays unchanged.
+- Automated JUnit tests cover pinned sword 0->1->...->10, falsely read digits, intermittent full-HUD frames, K jumps, death/assist changes, and highlight timing.
+- Important: actual sample 24242.mp4 was provided but the current container-backed video runtime errored. GitHub build/unit tests cannot substitute for running the OCR and MP4 exporter on the user's actual Xiaomi Pad 6, and no perfect-accuracy claim is made.
 
 ## V7.7 partial OCR recovery (November 4, 2026)
 - The screenshot of V7.6 shows only 82 of 694 frames yielded a parseable three-column HUD, so requiring all three numbers each time can miss real K increases.
