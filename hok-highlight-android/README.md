@@ -1,6 +1,15 @@
-# HOK Highlight AI V7.2 — own-hero kills with evidence gating
+# HOK Highlight AI V7.3 — own-hero kills with evidence gating
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 3 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.3 strict own-hero evidence (November 4, 2026)
+- Generic Double/Triple/Penta Kill (including Thai labels) does not confirm a personal kill when K/D/A OCR is weak.
+- An explicit own-hero elimination phrase can corroborate weak K/D/A, but an unverified banner alone never auto-exports.
+- Objective text detected from the neutral-boss banner OCR is preserved as negative evidence and prevents selecting any K candidate within 1.8 seconds. Simultaneous real hero and objective kills may need manual review.
+- Monster/objective banners are not even proposed for manual selection.
+- Cancelled scans preserve both the old highlights and the old death timeline.
+- Added regression tests covering generic multikills, objective-only, objective-adjacent, and own-hero cases.
+- The user's 24235.mp4 could not be decoded by the current file-processing environment. These tests are synthetic; real-device OCR and rendered video accuracy are not verified.
 
 ## V7.2 real-sample HUD correction (November 4, 2026)
 - Inspected real frames from `24218.mp4` at 1536x960 (277 seconds). Visible K progression goes from 0 to 1 to 2 to 3, with D rising once.

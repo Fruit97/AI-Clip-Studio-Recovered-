@@ -64,9 +64,34 @@ public class KillReconcilerV7Test {
   @Test public void weakKdaPlusHeroSpecificTextCanBeSelected() {
     List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(
       Arrays.asList(k(10000,2,false)),
-      Arrays.asList(b(10200,"ข้อความประกาศคิล: double kill")),
+      Arrays.asList(b(10200,"ข้อความประกาศคิล: you have slain an enemy hero")),
       Collections.emptyList());
     assertEquals(1,selected(d));assertEquals(10200,d.get(0).atMs);
+  }
+  @Test public void genericMultikillDoesNotVerifyPersonalKill() {
+    for(String notice:Arrays.asList("double kill","triple kill","penta kill",
+        "ดับเบิลคิล","ทริปเปิลคิล")) {
+      assertEquals(notice,0,selected(KillReconcilerV7.reconcile(
+        Arrays.asList(k(10000,2,false)),
+        Arrays.asList(b(10200,"ประกาศ: "+notice)),Collections.emptyList())));
+    }
+  }
+  @Test public void nearbyObjectiveMustNotAutoSelectEvenTrustedHud() {
+    List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(
+      Arrays.asList(k(10000,3,true)),
+      Arrays.asList(b(10500,"objective:tyrant")),Collections.emptyList());
+    assertEquals(0,selected(d));
+    assertEquals(1,d.size());
+  }
+  @Test public void distantObjectiveDoesNotVetoOwnHeroKill() {
+    List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(
+      Arrays.asList(k(10000,3,true)),
+      Arrays.asList(b(4500,"objective:overlord")),Collections.emptyList());
+    assertEquals(1,selected(d)); assertEquals(1,d.size());
+  }
+  @Test public void objectiveOnlyIsNotEvenSuggestedAsHighlight() {
+    assertTrue(KillReconcilerV7.reconcile(Collections.emptyList(),
+        Arrays.asList(b(10000,"objective:tyrant")),Collections.emptyList()).isEmpty());
   }
   @Test public void weakKdaPlusGenericDefeatCannotAutoSelect() {
     List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(

@@ -16,6 +16,10 @@ public final class KillReconcilerV7 {
     public final long atMs;
     public final String reason;
     public Banner(long at,String reason) { atMs=at;this.reason=reason==null?"":reason; }
+    public boolean objectiveText() {
+      String t=reason.toLowerCase(Locale.ROOT);
+      return t.contains("objective:") || HeroOnlyGuard.objectiveWord(t)!=null;
+    }
     public boolean heroicText() {
       String t=reason.toLowerCase(Locale.ROOT);
       // Neutral objectives can say "slain", "defeated", even "you have slain".
@@ -35,12 +39,12 @@ public final class KillReconcilerV7 {
          "ฝ่ายตรงข้ามดับเบิลคิล","ฝ่ายตรงข้ามทริปเปิลคิล"};
       for(String phrase:otherPlayer)if(t.contains(phrase))return false;
       // These banners are specific to HERO-versus-HERO eliminations.
+      // A generic Double/Triple/Penta Kill can refer to any teammate/enemy.
+      // Never treat it as independently verified OWN hero-kill evidence.
       String[] labels={"you have slain an enemy hero", "you have defeated an enemy hero",
-         "you have slain an enemy", "you have defeated an enemy",
-         "double kill", "doublekill", "triple kill", "triplekill",
-         "quadra kill", "quadrakill", "penta kill", "pentakill",
-         "mega kill",
-         "ดับเบิลคิล", "ทริปเปิลคิล", "ฆ่าสอง", "ฆ่าสาม", "ฆ่าสี่", "ฆ่าห้า"};
+         "you have killed an enemy hero", "you have slain an enemy",
+         "you have defeated an enemy", "you killed an enemy",
+         "คุณสังหารฮีโร่ศัตรู", "คุณกำจัดฮีโร่ศัตรู"};
       for(String value:labels)if(t.contains(value))return true;
       return false;
     }
@@ -83,12 +87,22 @@ public final class KillReconcilerV7 {
       if(nearest>=0) used[nearest]=true;
       boolean atDeath=nearDeath(kill.atMs,ownDeaths);
       boolean corroborated=nearest>=0;
-      // Confirmed PERSONAL K increments remain kills even near later deaths.
-      // Simultaneous K+D in one uncertain interval are already rejected by Tracker.
-      boolean selected=kill.trustedHud || (corroborated && !atDeath);
+      // Objective OCR contradicts a possible kill at the same instant.
+      // Leave simultaneous events for manual review: precision over recall.
+      boolean objectiveConflict=false;
+      for(Banner b:notices)
+        if(b.objectiveText() && Math.abs(kill.atMs-b.atMs)<=1800L) {
+          objectiveConflict=true; break;
+        }
+      // Personal K rises shortly before death remain valid;
+      // simultaneous K+D changes are already rejected by the tracker.
+      boolean selected=!objectiveConflict &&
+          (kill.trustedHud || (corroborated && !atDeath));
       long time=corroborated?notices.get(nearest).atMs:kill.atMs;
       String reason;
-      if(kill.trustedHud) reason="K/D/A ส่วนตัวยืนยันค่า K เพิ่ม #"+kill.individualTotal+
+      if(objectiveConflict)
+        reason="Objective ใกล้คิล (ตรวจเอง ไม่เลือกตัดอัตโนมัติ)";
+      else if(kill.trustedHud) reason="K/D/A ส่วนตัวยืนยันค่า K เพิ่ม #"+kill.individualTotal+
           (atDeath?" • คิลก่อนตาย (ตัดปลายก่อนหน้าจอตาย)":"");
       else if(atDeath) reason="ค่า K ยังไม่ยืนยันและใกล้เวลาตาย (ไม่เลือก)";
       else if(corroborated) reason="K เพิ่ม + พบข้อความคิลฮีโร่ #"+kill.individualTotal;
@@ -99,7 +113,7 @@ public final class KillReconcilerV7 {
     for(int j=0;j<notices.size();j++) {
       if(used[j])continue;
       Banner b=notices.get(j);
-      if(nearDeath(b.atMs,ownDeaths))continue;
+      if(b.objectiveText() || nearDeath(b.atMs,ownDeaths))continue;
       boolean covered=false;
       for(Decision x:out) if(Math.abs(x.atMs-b.atMs)<1100L) {covered=true;break;}
       if(!covered) out.add(new Decision(b.atMs,
