@@ -64,6 +64,9 @@ public final class KdaCounter {
         double bestScore=Double.NEGATIVE_INFINITY;
         for(int i=0;i<numbers.size();i++){
             NumberBox a=numbers.get(i);
+            // Personal sword/K HUD lives to the right of team-score totals.
+            // Reject any triplet beginning in the scoreboard band.
+            if(a.x<.65f)continue;
             for(int j=i+1;j<numbers.size();j++){
                 NumberBox b=numbers.get(j);
                 double d1=b.x-a.x;
