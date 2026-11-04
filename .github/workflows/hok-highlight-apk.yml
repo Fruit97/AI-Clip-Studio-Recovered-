@@ -1,7 +1,7 @@
-name: HOK Highlight AI V3 APK
+name: HOK Highlight AI V4 APK
 on:
   push:
-    branches: [hok-highlight-apk-v3]
+    branches: [hok-highlight-apk-v4]
     paths:
       - 'hok-highlight-android/**'
       - '.github/workflows/hok-highlight-apk.yml'
@@ -44,7 +44,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: HOK-Highlight-AI-APK-V3
+          name: HOK-Highlight-AI-APK-V4
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -54,9 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v3.apk
-          if gh release view hok-highlight-ai-v3 >/dev/null 2>&1; then
-            gh release upload hok-highlight-ai-v3 HOK-Highlight-AI-Pad6-v3.apk --clobber
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v4.apk
+          if gh release view hok-highlight-ai-v4 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v4 HOK-Highlight-AI-Pad6-v4.apk --clobber
           else
-            gh release create hok-highlight-ai-v3 HOK-Highlight-AI-Pad6-v3.apk --target hok-highlight-apk-v3 --title 'HOK Highlight AI Pad6 v3.0' --notes 'On-device V3 experimental: exclude neutral objective/monster kill messages, require both hero-portrait regions, and apply delayed veto before proposing cuts. Visual-only marks require review. Debug signing may differ from previous APK.'
+            gh release create hok-highlight-ai-v4 HOK-Highlight-AI-Pad6-v4.apk --target hok-highlight-apk-v4 --title 'HOK Highlight AI Pad6 v4.0' --notes 'V4 hotfix: restore the V2 banner scan recall, reject objectively identified jungle monster/boss text only, keep a 1.2 second veto window. Visual-only marks need review; still experimental.'
           fi
