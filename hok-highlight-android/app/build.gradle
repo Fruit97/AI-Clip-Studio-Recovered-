@@ -1,0 +1,28 @@
+plugins {
+    id 'com.android.application'
+}
+android {
+    namespace 'com.pad6.hokhighlight'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.pad6.hokhighlight'
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+}
+dependencies {
+    implementation 'androidx.media3:media3-transformer:1.11.1'
+    implementation 'androidx.media3:media3-effect:1.11.1'
+    implementation 'androidx.media3:media3-common:1.11.1'
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'com.google.guava:guava:33.3.1-android'
+}
