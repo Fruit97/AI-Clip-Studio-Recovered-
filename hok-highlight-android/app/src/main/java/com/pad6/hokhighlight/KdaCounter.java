@@ -135,10 +135,9 @@ public final class KdaCounter {
         public List<Kill> feed(long atMs,Observation observed){
             samples++;
             if(atMs<0||observed==null)return Collections.emptyList();
-            // Separate HUD numbers (without slash) are provisional.
-            // Calibrate their location over 5 consistent reads; an arbitrary
-            // one-off group of digits must never create a kill.
-            if(!observed.trusted && baseline!=null && baseline.trusted) {
+            // Never treat arbitrary nearby HUD numbers as the player's KDA.
+            // Only a slash-delimited personal K/D/A readout is trusted.
+            if(!observed.trusted) {
                 rejectedUntrusted++;
                 return Collections.emptyList();
             }
@@ -163,8 +162,7 @@ public final class KdaCounter {
                 return Collections.emptyList();
             }
             stable++;
-            int required=(baseline==null && !observed.trusted)?5:3;
-            if(stable<required)return Collections.emptyList();
+            if(stable<3)return Collections.emptyList();
             trustedSnapshots++;
             lastValidAt=atMs;
             pending=null;stable=0;
