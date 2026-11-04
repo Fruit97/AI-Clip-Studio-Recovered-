@@ -28,10 +28,9 @@ public final class HighlightPlanner {
       long start = Math.max(0, when-3000);
       long end = Math.min(videoLengthMs,when+3000);
       if (end <= start) continue;
-      if (!out.isEmpty() && start <= out.get(out.size()-1).endMs + 250) {
-        Range old = out.remove(out.size()-1);
-        out.add(new Range(old.startMs, Math.max(old.endMs,end)));
-      } else out.add(new Range(start,end));
+      // IMPORTANT: one kill must produce one clip, even if adjacent clips
+      // overlap. V1-V4 merged two close kills into one and lost shot count.
+      out.add(new Range(start,end));
     }
     return out;
   }
