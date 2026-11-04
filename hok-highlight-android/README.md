@@ -1,6 +1,15 @@
-# HOK Highlight AI V7.6 — continuous sword-counter detection
+# HOK Highlight AI V7.7 — focused sword tracking after HUD calibration
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.7 partial OCR recovery (November 4, 2026)
+- The screenshot of V7.6 shows only 82 of 694 frames yielded a parseable three-column HUD, so requiring all three numbers each time can miss real K increases.
+- A new SwordCounterTracker first calibrates the personal sword/skull/fist row using three agreeing full observations; only then can targeted sword-only reads confirm a K increase.
+- When full-row OCR does not report the K digit, the app tries an enlarged focused crop at the locked sword-number position. Repeated skull/fist OCR is not required just to detect a sword update.
+- Three agreeing sword readings are required before a new highlight is selected. Single-frame errors, decreasing values, huge jumps, and contradictory full vs focused OCR are discarded.
+- The old full K/D/A tracker is kept for own-death timing; nothing from monster, objective or teammate banners triggers a highlight.
+- Added synthetic unit tests covering K=0 through K=10 while skull/fist OCR is missing, no false cuts from D/A increases, OCR blips, and conflict rejection.
+- This runtime cannot decode the user's 24242.mp4 due to container tool errors. The APK build test does not prove on-device video accuracy.
 
 ## V7.6 continuous K-counter reliability fixes (November 4, 2026)
 - User screenshot confirms V7.5 scan finished without finding a verified K even though sword/K is visible in the gameplay.

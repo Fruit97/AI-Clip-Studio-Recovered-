@@ -136,7 +136,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V7.6",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V7.7",26,TEXT));
     root.addView(label("ต่อ 1 คิล: 5 วินาทีก่อน + 3 วินาทีหลัง (สูงสุด 8 วินาที)\nอิงเลข K ข้างรูปดาบ • ทำงานในเครื่อง ไม่อัปโหลดวิดีโอ",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -159,7 +159,7 @@ public class MainActivity extends Activity {
     root.addView(label("1. ตรวจเลขดาบ K (ของผู้เล่น) เท่านั้น",18,TEXT));
     root.addView(label("ดูเลขดาบเปลี่ยน 0→1→2→3 เท่านั้น • กะโหลก D = ตาย • หมัด A = แอสซิสต์ • ไม่ใช้แบนเนอร์เป็นจุดตัด",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("ตรวจเลขดาบ K V7.6",scanRow,v->scanForKills());
+    scanButton=button("ตรวจเลขดาบ K V7.7",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -189,7 +189,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V7.6 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
+    root.addView(label("หมายเหตุ: V7.7 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -288,22 +288,22 @@ public class MainActivity extends Activity {
   }
 
   /**
-   * V2: sample 2.5 frames/sec to find visual HUD kill-strip cues,
-   * then use OCR alongside visual recognition.
-   * English can have stronger text evidence; Thai is *visual candidate only* because
-   * bundled ML Kit Latin OCR does not support Thai script.
+   * Full HUD OCR establishes the sword/skull/fist row once. After that,
+   * single-frame sword OCR continues working even when D or A disappears
+   * from ML Kit's text output. It never scans monster kill banners.
    */
-  /** Read the personal K/D/A numerals from the in-game top HUD, not team score. */
-  /** Personal K/D/A only. Full slash-separated OCR is required for auto cuts. */
-  private KdaCounter.Observation readPersonalKda(Bitmap frame,TextRecognizer recognizer)
-      throws Exception {
+  private static final class HudRead {
+    final KdaCounter.Observation full;
+    final int sword;
+    HudRead(KdaCounter.Observation value,int k){full=value;sword=k;}
+  }
+
+  private HudRead readPersonalHud(Bitmap frame,TextRecognizer recognizer,
+      float swordX,float swordY) throws Exception {
     int w=frame.getWidth(),h=frame.getHeight();
-    // Read the entire upper personal-HUD band at the source's native
-    // resolution. V7.5 clipped the band too narrowly for some HOK layouts.
-    int left=(int)(w*.35f);
-    int cw=w-left;
+    int left=(int)(w*.35f),cw=w-left;
     int ch=Math.max(1,(int)(h*.27f));
-    Bitmap crop=null,upscaled=null;
+    Bitmap crop=null,upscaled=null,focus=null,focusScaled=null;
     try {
       crop=Bitmap.createBitmap(frame,left,0,cw,ch);
       upscaled=Bitmap.createScaledBitmap(crop,cw*2,ch*2,true);
@@ -311,19 +311,45 @@ public class MainActivity extends Activity {
       List<KdaHudOcr.Line> lines=new ArrayList<>();
       for(Text.TextBlock block:ocr.getTextBlocks())
         for(Text.Line line:block.getLines()){
-          Rect b=line.getBoundingBox();
-          if(b!=null)
+          Rect rect=line.getBoundingBox();
+          if(rect!=null)
             lines.add(new KdaHudOcr.Line(line.getText(),
-                 (left+b.exactCenterX()*.5f)/w,b.exactCenterY()*.5f/h));
-          for(Text.Element element:line.getElements()){
-            Rect eb=element.getBoundingBox();
-            if(eb!=null)
-              lines.add(new KdaHudOcr.Line(element.getText(),
-                   (left+eb.exactCenterX()*.5f)/w,eb.exactCenterY()*.5f/h));
+                (left+rect.exactCenterX()*.5f)/w,
+                rect.exactCenterY()*.5f/h));
+          for(Text.Element elem:line.getElements()){
+            Rect er=elem.getBoundingBox();
+            if(er!=null)
+              lines.add(new KdaHudOcr.Line(elem.getText(),
+                  (left+er.exactCenterX()*.5f)/w,
+                  er.exactCenterY()*.5f/h));
           }
         }
-      return KdaHudOcr.parse(lines);
-    }finally {
+      KdaCounter.Observation full=KdaHudOcr.parse(lines);
+      int sword=KdaHudOcr.parseSword(lines,swordX,swordY);
+      // A targeted OCR crop is a fallback ONLY after a full triple was
+      // calibrated to the game HUD. Do not read random unlocated numbers.
+      if(sword<0 && swordX>=0f && swordY>=0f){
+        int fw=Math.max(16,(int)(w*.052f));
+        int fh=Math.max(14,(int)(h*.055f));
+        int x=Math.max(0,Math.min(w-fw,(int)(swordX*w)-fw/2));
+        int y=Math.max(0,Math.min(h-fh,(int)(swordY*h)-fh/2));
+        focus=Bitmap.createBitmap(frame,x,y,fw,fh);
+        focusScaled=Bitmap.createScaledBitmap(focus,fw*4,fh*4,true);
+        Text isolated=Tasks.await(recognizer.process(
+            InputImage.fromBitmap(focusScaled,0)));
+        sword=KdaHudOcr.parseSingle(isolated.getText());
+        if(sword<0){
+          for(Text.TextBlock block:isolated.getTextBlocks())
+            for(Text.Line line:block.getLines()){
+              int n=KdaHudOcr.parseSingle(line.getText());
+              if(n>=0){sword=n;break;}
+            }
+        }
+      }
+      return new HudRead(full,sword);
+    }finally{
+      if(focusScaled!=null)focusScaled.recycle();
+      if(focus!=null)focus.recycle();
       if(upscaled!=null)upscaled.recycle();
       if(crop!=null)crop.recycle();
     }
@@ -341,6 +367,7 @@ public class MainActivity extends Activity {
       MediaMetadataRetriever retriever=new MediaMetadataRetriever();
       TextRecognizer recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
       KdaCounter.Tracker personalKda=new KdaCounter.Tracker();
+      SwordCounterTracker swordTracker=new SwordCounterTracker();
       List<KdaCounter.Kill> kdaKills=new ArrayList<>();
       int frameErrors=0,ocrErrors=0,scanned=0,hudReads=0;
       int lastSword=-1;
@@ -359,9 +386,15 @@ public class MainActivity extends Activity {
                 MediaMetadataRetriever.OPTION_CLOSEST,1920,1080);
             if(frame==null){frameErrors++;continue;}
             try {
-              KdaCounter.Observation current=readPersonalKda(frame,recognizer);
-              if(current!=null){hudReads++;lastSword=current.kills;}
-              kdaKills.addAll(personalKda.feed(atMs,current));
+              HudRead read=readPersonalHud(frame,recognizer,
+                  swordTracker.swordX(),swordTracker.swordY());
+              if(read.full!=null)hudReads++;
+              // Only independently tracked and temporally confirmed sword
+              // changes become automatic highlights.
+              kdaKills.addAll(swordTracker.feed(atMs,read.full,read.sword));
+              // Full K/D/A observation is used to detect own deaths (D).
+              personalKda.feed(atMs,read.full);
+              lastSword=swordTracker.confirmedKills();
             }catch(Exception e){ocrErrors++;}
             scanned++;
           }catch(Exception e){frameErrors++;}
@@ -387,19 +420,23 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V7.6 "+decision.reason);
+              "V7.7 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V7.6 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V7.7 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
         }
         final int imagesFailed=frameErrors,ocrFailed=ocrErrors,framesDone=scanned,
-            readsDone=hudReads,lastKSeen=lastSword;
+            readsDone=hudReads,lastKSeen=lastSword,
+            swordReadCount=swordTracker.swordReads(),
+            fullCount=swordTracker.fullReads(),
+            noise=swordTracker.ignoredNoise(),
+            locked=swordTracker.hasLocation();
         int approved=0;
         for(KillMark item:output)
            if(item.enabled)approved++;
@@ -426,7 +463,8 @@ public class MainActivity extends Activity {
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V7.6 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V7.7 ") ||
+              mark.reason.startsWith("V7.6 ") ||
               mark.reason.startsWith("V7.5 ") ||
               mark.reason.startsWith("V7.4 ") ||
               mark.reason.startsWith("V7.1 ") ||
@@ -456,10 +494,13 @@ public class MainActivity extends Activity {
                 " • ไม่ตัดจากแบนเนอร์";
           if(ambiguous>0) summary+=" • ช่วงคิล+ตายที่ต้องตรวจ "+ambiguous+" จุด (ไม่ได้เลือกตัด)";
           if(framesDone==0)summary="ไม่สามารถถอดภาพคลิปได้ ตรวจสอบไฟล์ MP4 ที่เปิดได้";
-          summary+=" • OCR ตรวจพบแถว K/D/A "+readsDone+"/"+framesDone+" ภาพ";
+          summary+=" • HUD เต็ม "+fullCount+"/"+framesDone+
+              " ภาพ • เลขดาบเดี่ยว "+swordReadCount+
+              " ภาพ • ตำแหน่ง "+(locked?"ล็อกแล้ว":"ยังไม่ล็อก")+
+              " • OCR ขัดแย้ง "+noise;
           if(imagesFailed>0||ocrFailed>0)
             summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
-          setStatus((cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
+          setStatus("V7.7 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
         });
       }catch(Exception error){
         main.post(()->{

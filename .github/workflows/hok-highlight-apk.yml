@@ -1,4 +1,4 @@
-name: HOK Highlight AI V7.6 APK
+name: HOK Highlight AI V7.7 APK
 on:
   push:
     branches: [hok-highlight-apk-v7]
@@ -44,7 +44,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: HOK-Highlight-AI-APK-V7-6
+          name: HOK-Highlight-AI-APK-V7-7
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -54,9 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v7.6.apk
-          if gh release view hok-highlight-ai-v7-6 >/dev/null 2>&1; then
-            gh release upload hok-highlight-ai-v7-6 HOK-Highlight-AI-Pad6-v7.6.apk --clobber
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v7.7.apk
+          if gh release view hok-highlight-ai-v7-7 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v7-7 HOK-Highlight-AI-Pad6-v7.7.apk --clobber
           else
-            gh release create hok-highlight-ai-v7-6 HOK-Highlight-AI-Pad6-v7.6.apk --target hok-highlight-apk-v7 --title 'HOK Highlight AI Pad6 v7.6' --notes 'V7.6: flexible top-HUD OCR row for sword K count changes, 1080p OCR input and OCR read diagnostics. Keeps sword-only selection and 5s before / 3s after. Unit tests synthetic; device result not yet verified.'
+            gh release create hok-highlight-ai-v7-7 HOK-Highlight-AI-Pad6-v7.7.apk --target hok-highlight-apk-v7 --title 'HOK Highlight AI Pad6 v7.7' --notes 'V7.7: locks own KDA row with repeated full readings, then tracks sword digits alone when skull/fist OCR drops out. Only confirmed 0 to 1 to 2 sword changes make clips. Tests synthetic; real device unverified.'
           fi

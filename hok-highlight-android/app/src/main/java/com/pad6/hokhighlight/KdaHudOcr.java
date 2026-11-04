@@ -33,6 +33,35 @@ public final class KdaHudOcr {
         return t.matches("[0-9]{1,2}")?Integer.parseInt(t):-1;
     }
 
+    /** Numeric value from OCR of an isolated sword digit crop. */
+    public static int parseSingle(String text){
+        return digit(text);
+    }
+
+    /**
+     * Once the three-column HUD was locked, read the sword column even if
+     * the skull/fist values cannot be recognized in this particular frame.
+     * The location must come from the previously calibrated full K/D/A row.
+     */
+    public static int parseSword(List<Line> lines,float swordX,float swordY){
+        if(lines==null || swordX<0 || swordY<0)return -1;
+        int found=-1;
+        double best=Double.POSITIVE_INFINITY;
+        for(Line line:lines){
+            if(line==null)continue;
+            int value=digit(line.text);
+            if(value<0)continue;
+            double dx=Math.abs(line.x-swordX), dy=Math.abs(line.y-swordY);
+            if(dx>.032 || dy>.028)continue;
+            double distance=dx*2.0+dy;
+            if(distance<best){
+                best=distance;
+                found=value;
+            }
+        }
+        return found;
+    }
+
     public static KdaCounter.Observation parse(List<Line> lines){
         if(lines==null)return null;
         KdaCounter.Observation best=null;

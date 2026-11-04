@@ -89,6 +89,18 @@ public class KdaHudOcrTest {
     assertEquals(0,o.deaths);assertEquals(0,o.assists);
   }
 
+  @Test public void lockedSwordDigitCanBeReadWithoutSkullOrFist() {
+    List<KdaHudOcr.Line> sparse=Arrays.asList(
+      new KdaHudOcr.Line("O",.827f,.072f),
+      new KdaHudOcr.Line("FPS 90",.73f,.031f),
+      new KdaHudOcr.Line("10",.60f,.04f));
+    assertEquals(0,KdaHudOcr.parseSword(sparse,.829f,.072f));
+    assertEquals(-1,KdaHudOcr.parseSword(sparse,-1f,-1f));
+    assertEquals(-1,KdaHudOcr.parseSword(sparse,.905f,.072f));
+    assertEquals(1,KdaHudOcr.parseSingle(" I "));
+    assertEquals(10,KdaHudOcr.parseSingle("10"));
+    assertEquals(-1,KdaHudOcr.parseSingle("double kill"));
+  }
   @Test public void isolatedLooseDigitsCannotTriggerUncalibratedKills() {
     KdaCounter.Observation weak=KdaCounter.parse(Arrays.asList(
       new KdaCounter.NumberBox(3,.829f,.052f),
