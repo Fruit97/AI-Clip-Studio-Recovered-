@@ -1,20 +1,14 @@
-# HOK Highlight AI V2 (Xiaomi Pad 6)
+# HOK Highlight AI Pad6 V3 — Hero-only kill filter
 
-**APK V2 is an offline, on-device highlight editor.** It uses a visual HUD banner heuristic in addition to OCR, scanning a sampled frame **every 400 ms**. This no longer requires English text to produce *candidate* kill moments. The app then exports H.264 MP4 highlights from 3 seconds before to 3 seconds after each selected event, including audio, 720p and high target bitrate.
+Native Android app: choose a HOK gameplay recording (up to 3 GB, 45 minutes), scan every 400ms, review proposed kills, export 3 seconds before and after each selected kill. H.264 + AAC, 720p, high 16 Mbps target, source 60 FPS retained when available. Offline and no root required.
 
-## What the detector can and cannot do
-- **Visual search:** locate top-center kill banner overlays, which are similar in Thai and English interfaces. False positives and missed kills are still possible, especially with custom HUDs, small overlays, portrait changes, unusual aspect ratios or varying game versions.
-- **Text search:** the bundled ML Kit recognizer is Latin-script/English OCR only; it **does not recognize Thai text**. See https://developers.google.com/ml-kit/vision/text-recognition/v2/languages
-- **Own vs. teammate kill:** the HUD often shows both; visual-only marks are **unverified candidates** and must be reviewed. This is not a pretrained HOK neural model, and we do **not** guarantee that all or only player kills are selected. To fix false positives, use the checkbox beside each candidate, or add missing times manually.
-- **Speed and battery:** frame scanning and OCR of 30–45 minute clips can be slow and warm up the tablet; leave the app open during processing.
-- **FPS:** source frame rate is preserved by Media3. A 60 FPS source normally exports at 60 FPS; this version does not synthesize true new 60 FPS frames from 30 FPS footage.
-- **Storage:** imports use Android document picker; no video uploading or root. 3 GB import size cap, 45-minute cap. Output uses local internal space and gallery MediaStore.
+**V3 change: hero-only mode.** Stop including monster, jungle camp, lane minion, Tyrant, Overlord, Tempest Dragon and other neutral objective kills. Text filter checks objective tokens before "you have slain" or "defeated". Visual filter requires a two-sided hero portrait banner against the game-field background. A brief 1.2s lookahead allows later OCR text to veto a proposed kill that turns out to be a monster. This reduces accidental inclusion of monster footage.
 
-## Build
-JDK 17; Gradle 8.13; Android Gradle Plugin 8.13.2; compile SDK 36.
+Important limitations:
+* **This is a heuristic, not an AI model trained on actual HOK screenshots.** There can still be missed hero kills and incorrect monster/teammate candidates in different HUD layouts or languages.
+* ML Kit Latin OCR **cannot read Thai glyphs**. Thai mode relies on the visual two-portrait heuristic. Ambiguous results require reviewing the proposed timestamps before export. User needs to delete teammate kills if offered; automatic "my kills only" recognition is not yet proven.
+* You need free internal storage for export; keep app foregrounded during scan/export. Videos are processed on device, not uploaded.
+* No fake FPS interpolation. A 60fps original is expected to remain 60fps (hardware encoder can constrain actual result).
+* Debug APK signed by GitHub runner. If install over V2 says incompatible certificate, uninstall V2 first (back up anything saved in app-private storage).
 
-`gradle -p hok-highlight-android testDebugUnitTest assembleDebug`
-
-Workflow `.github/workflows/hok-highlight-apk.yml` uploads a debug-signed APK artifact and publishes a stable GitHub Release.
-
-**Important upgrade note:** GitHub Actions' debug-signed APKs can be signed with different ephemeral keystores. If Android reports "app not installed" when upgrading V1 to V2, uninstall V1 first, then install V2. Keep the original videos safe in your gallery; uninstalling clears app-private output files.
+Build on Java 17: `gradle -p hok-highlight-android testDebugUnitTest assembleDebug`. Automation on branch hok-highlight-apk-v3 publishes an APK under GitHub Releases only after build and tests pass.
