@@ -1,4 +1,4 @@
-name: HOK Highlight AI V7.3 APK
+name: HOK Highlight AI V7.4 APK
 on:
   push:
     branches: [hok-highlight-apk-v7]
@@ -44,7 +44,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: HOK-Highlight-AI-APK-V7-3
+          name: HOK-Highlight-AI-APK-V7-4
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -54,9 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v7.3.apk
-          if gh release view hok-highlight-ai-v7-3 >/dev/null 2>&1; then
-            gh release upload hok-highlight-ai-v7-3 HOK-Highlight-AI-Pad6-v7.3.apk --clobber
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v7.4.apk
+          if gh release view hok-highlight-ai-v7-4 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v7-4 HOK-Highlight-AI-Pad6-v7.4.apk --clobber
           else
-            gh release create hok-highlight-ai-v7-3 HOK-Highlight-AI-Pad6-v7.3.apk --target hok-highlight-apk-v7 --title 'HOK Highlight AI Pad6 v7.3' --notes 'V7.3 beta: strict hero-only personal K evidence, generic multikill no longer confirms own kill, and neutral-objective OCR blocks nearby auto-selection. Tests are synthetic and 24235.mp4 was not decoded for validation.'
+            gh release create hok-highlight-ai-v7-4 HOK-Highlight-AI-Pad6-v7.4.apk --target hok-highlight-apk-v7 --title 'HOK Highlight AI Pad6 v7.4' --notes 'V7.4: each confirmed player hero kill is clipped from 5 seconds before K increments through 3 seconds after. Death-tail safety is retained. Unit tests pass if this APK is published; accuracy on Xiaomi Pad 6 is not yet established.'
           fi

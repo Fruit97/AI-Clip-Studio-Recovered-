@@ -1,6 +1,15 @@
-# HOK Highlight AI V7.3 — own-hero kills with evidence gating
+# HOK Highlight AI V7.4 — own-hero kills with evidence gating
 
-Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 3 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.4 cut-window change (November 4, 2026)
+- Each confirmed increase in the player's own sword/K counter creates a 5-second pre-kill lead and a 3-second post-kill tail, up to 8 seconds per event.
+- At the start/end of a source video, crop the window to existing footage (no filler or invented frames).
+- The post-kill tail ends before a confirmed own death. If death is detected in the five-second lead, the clip stays out of auto-export instead of rendering a death/respawn scene.
+- Separate close kills remain separate highlights under the prior requirement (their eight-second windows may overlap in the output).
+- Existing boss/objective, monster, death and teammate exclusion rules continue unchanged.
+- Regression tests cover 8-second clips, clip boundaries, consecutive kills and death trimming.
+- Tests are synthetic; actual sample 24235.mp4 still has not been decoded end-to-end and real-world detection accuracy is not verified.
 
 ## V7.3 strict own-hero evidence (November 4, 2026)
 - Generic Double/Triple/Penta Kill (including Thai labels) does not confirm a personal kill when K/D/A OCR is weak.

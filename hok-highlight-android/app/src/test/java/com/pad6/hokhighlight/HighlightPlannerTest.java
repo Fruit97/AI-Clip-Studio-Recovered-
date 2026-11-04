@@ -5,16 +5,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 public class HighlightPlannerTest {
- @Test public void threeSecondsBeforeAndAfter() {
+ @Test public void fiveSecondsBeforeAndThreeAfter() {
    List<HighlightPlanner.Range> r=HighlightPlanner.calculate(Arrays.asList(15000L,48000L),60000);
-   assertEquals(2,r.size()); assertEquals(12000,r.get(0).startMs);assertEquals(18000,r.get(0).endMs);
+   assertEquals(2,r.size()); assertEquals(10000,r.get(0).startMs);assertEquals(18000,r.get(0).endMs);
+   assertEquals(43000L,r.get(1).startMs);assertEquals(51000L,r.get(1).endMs);
+   assertEquals(8000L,r.get(0).endMs-r.get(0).startMs);
  }
  @Test public void consecutiveKillsMakeSeparateShotsEvenIfOverlapping() {
    List<HighlightPlanner.Range> r=HighlightPlanner.calculate(Arrays.asList(10000L,11000L,14000L),60000);
    assertEquals(3,r.size());
-   assertEquals(7000,r.get(0).startMs);assertEquals(13000,r.get(0).endMs);
-   assertEquals(8000,r.get(1).startMs);assertEquals(14000,r.get(1).endMs);
-   assertEquals(11000,r.get(2).startMs);assertEquals(17000,r.get(2).endMs);
+   assertEquals(5000,r.get(0).startMs);assertEquals(13000,r.get(0).endMs);
+   assertEquals(6000,r.get(1).startMs);assertEquals(14000,r.get(1).endMs);
+   assertEquals(9000,r.get(2).startMs);assertEquals(17000,r.get(2).endMs);
  }
  @Test public void arbitraryKillCountsAreNeverHardcoded() {
    for(int count:new int[]{1,2,8,10,17}) {
@@ -28,11 +30,32 @@ public class HighlightPlannerTest {
    assertEquals(0,r.get(0).startMs);assertEquals(60000,r.get(1).endMs);
  }
  @Test public void noKills() {assertTrue(HighlightPlanner.calculate(Collections.emptyList(),60000).isEmpty());}
+ @Test public void deathBeforeKillInFiveSecondLeadDoesNotExportDeathScreen() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.calculateAvoidDeaths(
+       Arrays.asList(10000L),Arrays.asList(8000L),30000L);
+   assertTrue(r.isEmpty());
+ }
+ @Test public void noDeathNearKillAlwaysKeepsExactlyEightSeconds() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.calculateAvoidDeaths(
+       Arrays.asList(20000L),Arrays.asList(7000L,26000L),60000L);
+   assertEquals(1,r.size());
+   assertEquals(15000L,r.get(0).startMs);
+   assertEquals(23000L,r.get(0).endMs);
+ }
+ @Test public void sourceClampsFiveSecondPrerollAtBeginning() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.calculate(Arrays.asList(1500L),20000L);
+   assertEquals(0L,r.get(0).startMs);assertEquals(4500L,r.get(0).endMs);
+ }
+ @Test public void nullMarkersAreIgnored() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.calculate(
+       Arrays.asList(10000L,null,20000L),30000L);
+   assertEquals(2,r.size());
+ }
  @Test public void deathInsidePostKillTailIsTrimmedBeforeDeath() {
    List<HighlightPlanner.Range> r=HighlightPlanner.calculateAvoidDeaths(
        Arrays.asList(10000L),Arrays.asList(12000L),30000);
    assertEquals(1,r.size());
-   assertEquals(7000L,r.get(0).startMs);
+   assertEquals(5000L,r.get(0).startMs);
    assertEquals(11200L,r.get(0).endMs);
  }
  @Test public void severalHeroKillsStaySeparateWithoutShowingDeath(){

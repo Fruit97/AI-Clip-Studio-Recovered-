@@ -136,8 +136,8 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V7.3",26,TEXT));
-    root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
+    root.addView(label("HOK HIGHLIGHT AI V7.4",26,TEXT));
+    root.addView(label("ต่อ 1 คิล: 5 วินาทีก่อน + 3 วินาทีหลัง (สูงสุด 8 วินาที)\nอิงเลข K ข้างรูปดาบ • ทำงานในเครื่อง ไม่อัปโหลดวิดีโอ",14,MUTED));
 
     LinearLayout importRow=row(root);
     button("เลือกวิดีโอ HOK",importRow,v->chooseVideo());
@@ -157,9 +157,9 @@ public class MainActivity extends Activity {
     });
 
     root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
-    root.addView(label("V7.3 เฉพาะคิลฮีโร่ของเรา • แยกจำนวนคิล (K) จากจำนวนตาย (D) และช่วยเหลือ (A) • ตอนตายไม่เลือกตัด • มอนสเตอร์ไม่นับเป็นคิลฮีโร่",13,MUTED));
+    root.addView(label("V7.4 เฉพาะคิลฮีโร่ของเรา • แยกจำนวนคิล (K) จากจำนวนตาย (D) และช่วยเหลือ (A) • ตอนตายไม่เลือกตัด • มอนสเตอร์ไม่นับเป็นคิลฮีโร่",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI ตรวจคิลฮีโร่ V7.3",scanRow,v->scanForKills());
+    scanButton=button("AI ตรวจคิลฮีโร่ V7.4",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -189,7 +189,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V7.3 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
+    root.addView(label("หมายเหตุ: V7.4 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -332,7 +332,7 @@ public class MainActivity extends Activity {
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V7.3 กำลังตรวจ K/D/A ตำแหน่งจริงจากคลิป HOK…");
+    setStatus("V7.4 กำลังตรวจ K/D/A ตำแหน่งจริงจากคลิป HOK…");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
@@ -432,13 +432,13 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V7.3 "+decision.reason);
+              "V7.4 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V7.3 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V7.4 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -470,8 +470,8 @@ public class MainActivity extends Activity {
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V7.3 ") ||
-              mark.reason.startsWith("V7.3 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V7.4 ") ||
+              mark.reason.startsWith("V7.4 ") ||
               mark.reason.startsWith("V7.1 ") ||
               mark.reason.startsWith("V7 ") ||
               mark.reason.startsWith("KDA ") ||
