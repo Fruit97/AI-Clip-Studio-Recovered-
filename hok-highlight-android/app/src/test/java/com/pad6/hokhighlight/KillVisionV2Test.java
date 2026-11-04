@@ -11,6 +11,10 @@ public class KillVisionV2Test {
       KillVisionV2.parseText("You have been defeated").category);
     assertEquals(KillVisionV2.Category.OTHER,
       KillVisionV2.parseText("Enemy Double Kill").category);
+    for(String other:new String[]{"Enemy Triple Kill", "Enemy Penta Kill",
+        "Ally Double Kill", "Ally First Blood", "Teammate Triple Kill"})
+      assertEquals(other,KillVisionV2.Category.OTHER,
+          KillVisionV2.parseText(other).category);
     assertEquals(KillVisionV2.Category.MAYBE,
       KillVisionV2.parseText("QUADRAKILL!").category);
     assertEquals(KillVisionV2.Category.MAYBE,

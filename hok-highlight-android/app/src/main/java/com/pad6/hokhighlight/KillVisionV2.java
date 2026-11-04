@@ -36,6 +36,10 @@ public final class KillVisionV2 {
           "you are defeated", "an ally has been defeated", "an ally has been slain",
           "enemy double kill", "enemy triple kill", "enemy quadra kill",
           "enemy penta kill", "enemy legendary", "enemy godlike",
+          "enemy first blood", "ally double kill", "ally triple kill",
+          "ally quadra kill", "ally penta kill", "ally first blood",
+          "teammate double kill", "teammate triple kill",
+          "an ally has slain", "an enemy has slain",
           "victory", "destroyed a tower", "tower destroyed",
           "ป้อม", "คุณถูกสังหาร", "คุณถูกกำจัด", "ถูกสังหาร", "พ่ายแพ้"
         };

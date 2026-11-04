@@ -23,12 +23,31 @@ public class KillReconcilerV7Test {
       Collections.emptyList());
     assertEquals(0,selected(d));
   }
-  @Test public void deathClipIsNotAPlayerKill() {
+  @Test public void personalKillJustBeforeDeathIsKeptAndTailTrimmed() {
     List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(
       Arrays.asList(k(9000,3,true)),
       Arrays.asList(b(9200,"OCR พบคิล: You have slain an enemy hero")),
-      Arrays.asList(9800L));
-    assertEquals(0,selected(d));
+      Arrays.asList(11800L));
+    assertEquals(1,selected(d));
+    List<HighlightPlanner.Range> shots=HighlightPlanner.calculateAvoidDeaths(
+        Arrays.asList(d.get(0).atMs),Arrays.asList(11800L),20000L);
+    assertEquals(1,shots.size());assertEquals(11000L,shots.get(0).endMs);
+  }
+  @Test public void weakKdaNearDeathIsNotSelected() {
+    assertEquals(0,selected(KillReconcilerV7.reconcile(
+      Arrays.asList(k(9000,3,false)),
+      Arrays.asList(b(9200,"OCR พบคิล: You have slain an enemy hero")),
+      Arrays.asList(9800L))));
+  }
+  @Test public void enemyAndAllyStreaksDoNotVerifyWeakKda() {
+    for(String name:Arrays.asList("Enemy Triple Kill","Enemy Penta Kill",
+        "Ally Double Kill","Enemy Godlike","Ally First Blood")) {
+      assertFalse(name,b(0,"OCR: "+name).heroicText());
+      assertEquals(0,selected(KillReconcilerV7.reconcile(
+          Arrays.asList(k(10000,3,false)),
+          Arrays.asList(b(10200,"OCR: "+name)),Collections.emptyList())));
+    }
+    assertFalse(b(0,"First Blood").heroicText());
   }
   @Test public void strongPersonalKdaKillIsSelectedWithoutBanner() {
     List<KillReconcilerV7.Decision> d=KillReconcilerV7.reconcile(

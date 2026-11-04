@@ -20,15 +20,26 @@ public final class KillReconcilerV7 {
       String t=reason.toLowerCase(Locale.ROOT);
       // Neutral objectives can say "slain", "defeated", even "you have slain".
       if(HeroOnlyGuard.objectiveWord(t)!=null ||
-         t.contains("objective:") || t.contains("enemy double kill") ||
+         t.contains("objective:") ||
          t.contains("you have been slain") ||
          t.contains("you have been defeated"))return false;
+      // Enemy and ally streak notifications are not personal kills.
+      String[] otherPlayer={"enemy double kill","enemy doublekill",
+         "enemy triple kill","enemy triplekill","enemy quadra kill",
+         "enemy quadrakill","enemy penta kill","enemy pentakill",
+         "enemy godlike","enemy legendary","enemy first blood",
+         "ally double kill","ally triple kill","ally quadra kill",
+         "ally penta kill","ally first blood","teammate double kill",
+         "teammate triple kill","an ally has slain",
+         "an enemy has slain","opponent double kill",
+         "ฝ่ายตรงข้ามดับเบิลคิล","ฝ่ายตรงข้ามทริปเปิลคิล"};
+      for(String phrase:otherPlayer)if(t.contains(phrase))return false;
       // These banners are specific to HERO-versus-HERO eliminations.
       String[] labels={"you have slain an enemy hero", "you have defeated an enemy hero",
          "you have slain an enemy", "you have defeated an enemy",
          "double kill", "doublekill", "triple kill", "triplekill",
          "quadra kill", "quadrakill", "penta kill", "pentakill",
-         "legendary", "godlike", "first blood", "mega kill",
+         "mega kill",
          "ดับเบิลคิล", "ทริปเปิลคิล", "ฆ่าสอง", "ฆ่าสาม", "ฆ่าสี่", "ฆ่าห้า"};
       for(String value:labels)if(t.contains(value))return true;
       return false;
@@ -72,11 +83,14 @@ public final class KillReconcilerV7 {
       if(nearest>=0) used[nearest]=true;
       boolean atDeath=nearDeath(kill.atMs,ownDeaths);
       boolean corroborated=nearest>=0;
-      boolean selected=!atDeath && (kill.trustedHud || corroborated);
-      long time=(corroborated && !atDeath)?notices.get(nearest).atMs:kill.atMs;
+      // Confirmed PERSONAL K increments remain kills even near later deaths.
+      // Simultaneous K+D in one uncertain interval are already rejected by Tracker.
+      boolean selected=kill.trustedHud || (corroborated && !atDeath);
+      long time=corroborated?notices.get(nearest).atMs:kill.atMs;
       String reason;
-      if(atDeath) reason="คิลใกล้การตายของเรา (ไม่เลือกตัด)";
-      else if(kill.trustedHud) reason="K/D/A ส่วนตัวยืนยันค่า K เพิ่ม #"+kill.individualTotal;
+      if(kill.trustedHud) reason="K/D/A ส่วนตัวยืนยันค่า K เพิ่ม #"+kill.individualTotal+
+          (atDeath?" • คิลก่อนตาย (ตัดปลายก่อนหน้าจอตาย)":"");
+      else if(atDeath) reason="ค่า K ยังไม่ยืนยันและใกล้เวลาตาย (ไม่เลือก)";
       else if(corroborated) reason="K เพิ่ม + พบข้อความคิลฮีโร่ #"+kill.individualTotal;
       else reason="ค่า K เพิ่ม แต่ตัวเลข K/D/A ยังไม่ยืนยัน (ไม่เลือก)";
       if(kill.inferred)reason+=" • คิลติดกัน";

@@ -1,6 +1,13 @@
-# HOK Highlight AI V7 — own-hero kills with evidence gating
+# HOK Highlight AI V7.1 — own-hero kills with evidence gating
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, source FPS (60 FPS if source 60 FPS and encoder supports it). Cuts 3 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.1 fixes (November 4, 2026)
+- Keep confirmed personal K-counter kills occurring shortly before the player's death; export trims subsequent death footage.
+- Ignore enemy/ally multikill text and generic First Blood as supporting evidence for a weak HUD read.
+- Cancelling a scan preserves the previous marker list rather than replacing it with incomplete scan results.
+- UI labels and regression tests updated for this release.
+- Actual gameplay footage has NOT been used for model calibration yet; measured game accuracy is unknown.
 
 ## V7 detector change
 The old model was only heuristic color/shape pattern matching. It could take monster/dragon/objective kills and player death/teammate kill banners as if they were your kills. V6 also treated weak OCR groups of three HUD numbers as verified personal KDA, causing false positives.
