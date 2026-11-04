@@ -73,7 +73,8 @@ public class HighlightPlannerTest {
    List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
        Arrays.asList(10000L,10300L),Arrays.asList(11200L),60000L);
    assertEquals(1,r.size());
-   assertEquals(5000L,r.get(0).startMs);assertEquals(11000L,r.get(0).endMs);
+   // Preserve V8.1's early death-safety cutoff at 11.2s - 0.8s.
+   assertEquals(5000L,r.get(0).startMs);assertEquals(10400L,r.get(0).endMs);
  }
  @Test public void separateClipsNeverRepeatSourceTime() {
    List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
