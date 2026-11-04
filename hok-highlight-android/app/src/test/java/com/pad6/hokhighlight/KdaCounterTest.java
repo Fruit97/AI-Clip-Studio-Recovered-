@@ -31,6 +31,22 @@ public class KdaCounterTest {
     assertEquals(0,obs.assists);
   }
 
+  @Test public void swordZeroOneTwoWithAssistAndDeathUnchanged() {
+    KdaCounter.Tracker tracker=new KdaCounter.Tracker();
+    KdaCounter.Observation zero=new KdaCounter.Observation(0,0,0,.867f,.052f,false);
+    for(int i=0;i<5;i++)assertTrue(tracker.feed(400L*i,zero).isEmpty());
+    KdaCounter.Observation one=new KdaCounter.Observation(1,0,0,.867f,.052f,false);
+    List<KdaCounter.Kill> first=java.util.Collections.emptyList();
+    for(int i=0;i<3;i++)first=tracker.feed(10000L+i*400L,one);
+    assertEquals(1,first.size());assertEquals(1,first.get(0).individualTotal);
+    assertTrue(first.get(0).trustedHud);
+    KdaCounter.Observation assist=new KdaCounter.Observation(1,0,1,.867f,.052f,false);
+    for(int i=0;i<3;i++)assertTrue(tracker.feed(14000L+i*400L,assist).isEmpty());
+    KdaCounter.Observation two=new KdaCounter.Observation(2,0,1,.867f,.052f,false);
+    List<KdaCounter.Kill> second=java.util.Collections.emptyList();
+    for(int i=0;i<3;i++)second=tracker.feed(30000L+i*400L,two);
+    assertEquals(1,second.size());assertEquals(2,second.get(0).individualTotal);
+  }
   @Test public void scoreboardDigitsAreNotPersonalKda() {
     assertNull(KdaCounter.parse(Arrays.asList(
       new KdaCounter.NumberBox(5,.56f,.05f),

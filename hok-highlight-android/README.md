@@ -1,6 +1,15 @@
-# HOK Highlight AI V7.4 — own-hero kills with evidence gating
+# HOK Highlight AI V7.5 — sword-number-only trigger
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V7.5 sword-counter-only correction (November 4, 2026)
+- The user's two reference images show sword = 0 (no own kills yet), then sword = 1 (one own hero kill). The skull and fist counters are D (own deaths) and A (assists). They must NOT trigger highlights.
+- One automatic selection is made only when the player's calibrated sword K counter rises from a previous stable value, such as 0->1, 1->2, 2->3, etc. The event time comes from the first new K reading, not a banner.
+- Generic hero-kill banners, portraits, deaths, monsters, objective announcements and teammate eliminations **never** authorize, cancel, or time a clip.
+- Removed banner/OCR + visual scanning from the video processing loop, reducing extra work and the risk of monster-based false positives.
+- Standalone temporary OCR values are not accepted; all three icon-column readings have to be stable and coherent. If OCR confidence is insufficient, mark is left unchecked, not auto-exported.
+- Still exports up to 5 seconds before and 3 after each confirmed K increment; own-death footage is trimmed out.
+- Added synthetic tests covering sword 0->1->2, no kills for D/A-only, no changes from banners, exact 5+3 second cuts. Actual Android OCR accuracy has not been measured with 24235.mp4.
 
 ## V7.4 cut-window change (November 4, 2026)
 - Each confirmed increase in the player's own sword/K counter creates a 5-second pre-kill lead and a 3-second post-kill tail, up to 8 seconds per event.

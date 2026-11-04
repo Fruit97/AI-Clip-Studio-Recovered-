@@ -66,58 +66,24 @@ public final class KillReconcilerV7 {
   }
 
   /**
-   * One K-counter increase -> one candidate, even when two kills occur within
-   * a single second. Auto-select only strong HUD or weak KDA + independent,
-   * hero-specific text evidence. Deaths and generic banners do NOT auto-select.
+   * Sole source of an automatic hero-kill event: a CONFIRMED INCREASE in
+   * the player's personal sword/K counter after stable HUD calibration.
+   * Do not use a banner, portrait, monster, teammate, objective or death
+   * event to create, approve, reject or retime the cut.
+   * Example sword 0 -> sword 1, later 1 -> 2 = exactly two cuts.
    */
   public static List<Decision> reconcile(List<KdaCounter.Kill> kda,
       List<Banner> banners,List<Long> ownDeaths) {
-    List<KdaCounter.Kill> kills=kda==null?Collections.emptyList():kda;
-    List<Banner> notices=banners==null?Collections.emptyList():banners;
-    boolean[] used=new boolean[notices.size()];
     List<Decision> out=new ArrayList<>();
-    for(KdaCounter.Kill kill:kills) {
-      int nearest=-1;long gap=2600L;
-      for(int j=0;j<notices.size();j++) {
-        Banner b=notices.get(j);
-        if(used[j]||!b.heroicText())continue;
-        long delta=Math.abs(kill.atMs-b.atMs);
-        if(delta<gap) {gap=delta;nearest=j;}
-      }
-      if(nearest>=0) used[nearest]=true;
-      boolean atDeath=nearDeath(kill.atMs,ownDeaths);
-      boolean corroborated=nearest>=0;
-      // Objective OCR contradicts a possible kill at the same instant.
-      // Leave simultaneous events for manual review: precision over recall.
-      boolean objectiveConflict=false;
-      for(Banner b:notices)
-        if(b.objectiveText() && Math.abs(kill.atMs-b.atMs)<=1800L) {
-          objectiveConflict=true; break;
-        }
-      // Personal K rises shortly before death remain valid;
-      // simultaneous K+D changes are already rejected by the tracker.
-      boolean selected=!objectiveConflict &&
-          (kill.trustedHud || (corroborated && !atDeath));
-      long time=corroborated?notices.get(nearest).atMs:kill.atMs;
-      String reason;
-      if(objectiveConflict)
-        reason="Objective ใกล้คิล (ตรวจเอง ไม่เลือกตัดอัตโนมัติ)";
-      else if(kill.trustedHud) reason="K/D/A ส่วนตัวยืนยันค่า K เพิ่ม #"+kill.individualTotal+
-          (atDeath?" • คิลก่อนตาย (ตัดปลายก่อนหน้าจอตาย)":"");
-      else if(atDeath) reason="ค่า K ยังไม่ยืนยันและใกล้เวลาตาย (ไม่เลือก)";
-      else if(corroborated) reason="K เพิ่ม + พบข้อความคิลฮีโร่ #"+kill.individualTotal;
-      else reason="ค่า K เพิ่ม แต่ตัวเลข K/D/A ยังไม่ยืนยัน (ไม่เลือก)";
-      if(kill.inferred)reason+=" • คิลติดกัน";
-      out.add(new Decision(time,reason,selected,true));
-    }
-    for(int j=0;j<notices.size();j++) {
-      if(used[j])continue;
-      Banner b=notices.get(j);
-      if(b.objectiveText() || nearDeath(b.atMs,ownDeaths))continue;
-      boolean covered=false;
-      for(Decision x:out) if(Math.abs(x.atMs-b.atMs)<1100L) {covered=true;break;}
-      if(!covered) out.add(new Decision(b.atMs,
-          "แบนเนอร์ยังไม่ยืนยันว่าเป็นคิลของเรา (ไม่เลือก): "+b.reason,false,false));
+    if(kda==null)return out;
+    for(KdaCounter.Kill kill:kda) {
+      if(kill==null)continue;
+      boolean selected=kill.trustedHud;
+      String reason=selected
+          ? "เลขดาบ K ของเราเพิ่มเป็น "+kill.individualTotal
+          : "เลขดาบ K ยังอ่านไม่แน่ชัด • ต้องตรวจเอง";
+      if(kill.inferred)reason+=" • K เพิ่มหลายครั้งระหว่างสองภาพ";
+      out.add(new Decision(kill.atMs,reason,selected,true));
     }
     out.sort((a,b)->Long.compare(a.atMs,b.atMs));
     return out;

@@ -136,7 +136,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V7.4",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V7.5",26,TEXT));
     root.addView(label("ต่อ 1 คิล: 5 วินาทีก่อน + 3 วินาทีหลัง (สูงสุด 8 วินาที)\nอิงเลข K ข้างรูปดาบ • ทำงานในเครื่อง ไม่อัปโหลดวิดีโอ",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -156,10 +156,10 @@ public class MainActivity extends Activity {
       return true;
     });
 
-    root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
-    root.addView(label("V7.4 เฉพาะคิลฮีโร่ของเรา • แยกจำนวนคิล (K) จากจำนวนตาย (D) และช่วยเหลือ (A) • ตอนตายไม่เลือกตัด • มอนสเตอร์ไม่นับเป็นคิลฮีโร่",13,MUTED));
+    root.addView(label("1. ตรวจเลขดาบ K (ของผู้เล่น) เท่านั้น",18,TEXT));
+    root.addView(label("ดูเลขดาบเปลี่ยน 0→1→2→3 เท่านั้น • กะโหลก D = ตาย • หมัด A = แอสซิสต์ • ไม่ใช้แบนเนอร์เป็นจุดตัด",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI ตรวจคิลฮีโร่ V7.4",scanRow,v->scanForKills());
+    scanButton=button("ตรวจเลขดาบ K V7.5",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -189,7 +189,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V7.4 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
+    root.addView(label("หมายเหตุ: V7.5 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -332,113 +332,62 @@ public class MainActivity extends Activity {
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V7.4 กำลังตรวจ K/D/A ตำแหน่งจริงจากคลิป HOK…");
+    setStatus("กำลังอ่านเลขข้างรูปดาบ K: 0→1→2 ... ไม่ใช้แบนเนอร์");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
       MediaMetadataRetriever retriever=new MediaMetadataRetriever();
       TextRecognizer recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-      KillVisionV2.Tracker bannerTracker=new KillVisionV2.Tracker();
       KdaCounter.Tracker personalKda=new KdaCounter.Tracker();
-      List<KillMark> banners=new ArrayList<>();
       List<KdaCounter.Kill> kdaKills=new ArrayList<>();
       int frameErrors=0,ocrErrors=0,scanned=0;
       try {
         retriever.setDataSource(this,uri);
         final int step=KillVisionV2.SAMPLE_INTERVAL_MS;
         final long count=Math.max(1,(duration+step-1)/step);
-        int[] pixels=null;
-        long lastBannerOcrMs=-10000;
+        // Only K/D/A HUD, never banner/objective/monster visual detection.
         for(long i=0;i<count && !stopScan.get();i++) {
           long atMs=Math.min(duration-1,i*step);
-          Bitmap frame=null,bannerCrop=null;
+          Bitmap frame=null;
           try {
             frame=retriever.getScaledFrameAtTime(atMs*1000L,
                 MediaMetadataRetriever.OPTION_CLOSEST,1280,720);
             if(frame==null){frameErrors++;continue;}
-            int w=frame.getWidth(),h=frame.getHeight();
-            if(pixels==null||pixels.length<w*h)pixels=new int[w*h];
-            frame.getPixels(pixels,0,w,0,0,w,h);
-            KillVisionV2.VisualSignal visual=KillVisionV2.analyze(pixels,w,h);
-            // 400ms personal-KDA sampling helps with rapid double/triple kills.
             try {
               KdaCounter.Observation current=readPersonalKda(frame,recognizer);
               kdaKills.addAll(personalKda.feed(atMs,current));
             }catch(Exception e){ocrErrors++;}
-            KillVisionV2.TextSignal words=KillVisionV2.parseText("");
-            boolean shouldBannerOcr=(visual.score>=.46||i%4==0) &&
-                                     atMs-lastBannerOcrMs>=1150;
-            if(shouldBannerOcr){
-              lastBannerOcrMs=atMs;
-              int x=(int)(w*.10),y=(int)(h*.052);
-              int cw=Math.min(w-x,Math.max(1,(int)(w*.80)));
-              int ch=Math.min(h-y,Math.max(1,(int)(h*.34)));
-              bannerCrop=Bitmap.createBitmap(frame,x,y,cw,ch);
-              try {
-                String text=Tasks.await(recognizer.process(
-                    InputImage.fromBitmap(bannerCrop,0))).getText();
-                words=KillVisionV2.parseText(text);
-              }catch(Exception e){ocrErrors++;}
-            }
-            // Keep explicit monster/objective text as NEGATIVE evidence.
-            // The visual tracker discards it, but the reconciler needs it to
-            // prevent false highlights near neutral-objective takedowns.
-            if(words.category==KillVisionV2.Category.OTHER &&
-                words.label.startsWith("objective:")) {
-              boolean recent=false;
-              for(KillMark prev:banners)
-                if(prev.reason.equals(words.label) &&
-                    Math.abs(prev.when-atMs)<2000L) {recent=true;break;}
-              if(!recent)banners.add(new KillMark(atMs,words.label));
-            }
-            KillVisionV2.Candidate visualMark=bannerTracker.feed(atMs,visual,words);
-            if(visualMark!=null){
-              boolean duplicate=false;
-              for(KillMark old:banners)
-                if(Math.abs(old.when-visualMark.timestampMs)<700L) {duplicate=true;break;}
-              if(!duplicate)banners.add(new KillMark(visualMark.timestampMs,visualMark.reason));
-            }
             scanned++;
           }catch(Exception e){frameErrors++;}
-          finally{
-            if(bannerCrop!=null)bannerCrop.recycle();
-            if(frame!=null)frame.recycle();
-          }
+          finally{if(frame!=null)frame.recycle();}
           if(i%6==0 || i==count-1){
             final int pct=(int)Math.min(100,100*(i+1)/count);
             final long seenMs=atMs;
-            final int verified=kdaKills.size(),unverified=banners.size();
+            final int found=kdaKills.size(), sword=personalKda.individualKills();
             main.post(()->{
               if(!scanning)return;
               progress.setProgress(pct);
               setStatus("สแกน "+pct+"% • "+HighlightPlanner.format(seenMs)+
                  " / "+HighlightPlanner.format(duration)+
-                 " • KDA ยืนยัน "+verified+" คิล • แบนเนอร์ "+unverified+" จุด");
+                 " • ตรวจพบ K เพิ่ม "+found+" จุด • เลขดาบล่าสุด "+sword);
             });
           }
         }
-        if(!stopScan.get()){
-          KillVisionV2.Candidate tail=bannerTracker.finish(duration+1600L);
-          if(tail!=null) banners.add(new KillMark(tail.timestampMs,tail.reason));
-        }
-        // V7: personal K/D/A plus HERO-specific text are separate evidence
-        // sources. No generic banner, neutral boss, or death event can silently
-        // become a selected player kill.
-        List<KillReconcilerV7.Banner> observations=new ArrayList<>();
-        for(KillMark banner:banners)
-          observations.add(new KillReconcilerV7.Banner(banner.when,banner.reason));
+        // Strict: a stable increase in the sword/K HUD is the only
+        // source and timestamp for an automatically selected cut.
         List<KillReconcilerV7.Decision> decisions=
-            KillReconcilerV7.reconcile(kdaKills,observations,personalKda.deathMoments());
+            KillReconcilerV7.reconcile(kdaKills,Collections.emptyList(),
+                personalKda.deathMoments());
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V7.4 "+decision.reason);
+              "V7.5 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V7.4 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V7.5 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -447,7 +396,7 @@ public class MainActivity extends Activity {
         int approved=0;
         for(KillMark item:output)
            if(item.enabled)approved++;
-        final int verified=approved,suggested=banners.size();
+        final int verified=approved;
         final int deathOnly=personalKda.deathsIgnored();
         final int ambiguous=personalKda.ambiguousEvents();
         final int deathFiltered=kdaKills.size()-verified;
@@ -470,7 +419,7 @@ public class MainActivity extends Activity {
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V7.4 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V7.5 ") ||
               mark.reason.startsWith("V7.4 ") ||
               mark.reason.startsWith("V7.1 ") ||
               mark.reason.startsWith("V7 ") ||
@@ -485,17 +434,16 @@ public class MainActivity extends Activity {
           renderMarks();
           String summary;
           if(verified>0)
-            summary="คิลที่มีหลักฐานสองทางหรือ KDA ชัดเจน "+verified+
+            summary="เลขดาบ K เพิ่มและตรวจยืนยันได้ "+verified+
                 " จุด • "+kdaState+
                 " • คิลยังไม่ยืนยัน "+(output.size()-verified)+
                 " จุด • D เพิ่ม "+deathOnly+" ครั้ง";
           else if(calibrated)
             summary="อ่าน KDA ได้ แต่ยังไม่พบ K เพิ่มโดยไม่มี D เพิ่ม • "+kdaState+
                 " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง"+
-                " • แบนเนอร์ที่ยังไม่ยืนยัน "+suggested+" จุด";
+                " • ไม่เอาจังหวะที่ D เพิ่มมาตัด";
           else
-            summary="ยังอ่าน K/D/A รูปแบบ K/D/A ไม่สำเร็จ • พบแบนเนอร์ "+suggested+
-                " จุด ซึ่งยกเลิกเลือกไว้เพื่อป้องกันตัดมอนสเตอร์ผิด";
+            summary="ยังยืนยันเลขดาบ K ไม่ได้ • ไม่เลือกคิลจากแบนเนอร์/มอนสเตอร์/Objective";
           if(ambiguous>0) summary+=" • ช่วงคิล+ตายที่ต้องตรวจ "+ambiguous+" จุด (ไม่ได้เลือกตัด)";
           if(framesDone==0)summary="ไม่สามารถถอดภาพคลิปได้ ตรวจสอบไฟล์ MP4 ที่เปิดได้";
           if(imagesFailed>0||ocrFailed>0)

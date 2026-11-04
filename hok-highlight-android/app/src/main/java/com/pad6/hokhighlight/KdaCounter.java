@@ -76,9 +76,16 @@ public final class KdaCounter {
                     double centerX=(a.x+c.x)/2.0;
                     double centerY=(a.y+b.y+c.y)/3.0;
                     if(centerX<.80||centerX>.925||centerY>.11)continue;
-                    // KDA typically near top-middle-right, scoreboard towards
-                    // the centre and clock/minimap at the edges.
-                    double score=-(Math.abs(centerX-.867)*2.5 +
+                    // Check sword/K, skull/D and fist/A NUMBER columns
+                    // captured in the user's reference screenshot. Reject
+                    // generic FPS, clock and team-score triplets.
+                    if(Math.abs(a.x-.829f)>.025f ||
+                       Math.abs(b.x-.867f)>.023f ||
+                       Math.abs(c.x-.905f)>.025f ||
+                       centerY<.025 || centerY>.09) continue;
+                    double score=-(Math.abs(a.x-.829)*2.5 +
+                         Math.abs(b.x-.867)*2.5 +
+                         Math.abs(c.x-.905)*2.5 +
                          Math.abs(centerY-.055)*3.0 +
                          Math.abs(d1-d2)*10.0);
                     if(score>bestScore){
@@ -226,7 +233,9 @@ public final class KdaCounter {
             }
 
             List<Kill> out=new ArrayList<>();
-            long eventMs=Math.max(0L,pendingAt-500L);
+            // First stable view of the sword counter's new value;
+            // half of the 400ms sampling period compensates for sampling lag.
+            long eventMs=Math.max(0L,pendingAt-200L);
             for(int i=0;i<deltaK;i++){
                 long at=Math.max(0L,eventMs-(deltaK-1-i)*330L);
                 out.add(new Kill(at,observed.kills-deltaK+i+1,deltaK>1,
