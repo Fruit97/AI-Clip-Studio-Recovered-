@@ -169,8 +169,7 @@ public final class KdaCounter {
                 return Collections.emptyList();
             }
             stable++;
-            int required=(baseline==null&&!observed.trusted)?5:
-                         observed.trusted?2:3;
+            int required=(baseline==null&&!observed.trusted)?5:3;
             if(stable<required)return Collections.emptyList();
             trustedSnapshots++;
             lastValidAt=atMs;
