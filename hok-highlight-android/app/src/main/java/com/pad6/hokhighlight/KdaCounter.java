@@ -6,65 +6,81 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Reads an individual's K/D/A numeric triplet from the live HUD.
- * Only a change of the player's K (not team score, minion or objective events)
- * can certify an elimination. UI visibility/layout varies by video.
+ * Player K/D/A tracker for the in-game HUD.
+ * A valid kill is an increase in the player's K only, NOT D, A, total team
+ * score, a death notification, or a monster/neutral objective banner.
+ *
+ * Numeral OCR is not by itself proof that a group is the personal KDA; the
+ * user still needs to verify its HUD placement on real game footage.
  */
 public final class KdaCounter {
     private KdaCounter() {}
-
     public static final class NumberBox {
         public final int value;
         public final float x,y;
-        public NumberBox(int value,float x,float y) {
+        public NumberBox(int value,float x,float y){
             this.value=value;this.x=x;this.y=y;
         }
     }
     public static final class Observation {
         public final int kills,deaths,assists;
         public final float x,y;
-        public Observation(int kills,int deaths,int assists,float x,float y) {
+        public Observation(int kills,int deaths,int assists,float x,float y){
             this.kills=kills;this.deaths=deaths;this.assists=assists;
             this.x=x;this.y=y;
+        }
+        public boolean sameValues(Observation other){
+            return other!=null && kills==other.kills &&
+                   deaths==other.deaths && assists==other.assists;
+        }
+        public boolean sameLocation(Observation other){
+            return other!=null && Math.abs(x-other.x)<.028f &&
+                    Math.abs(y-other.y)<.016f;
         }
     }
 
     /**
-     * KDA is a horizontal trio of small counters on the upper right.
-     * Reject clocks, FPS, the two-number team scoreboard and large gaps.
-     * Coordinates are normalized to the original frame dimensions.
+     * Find 3 adjacent small counters in the upper-HUD K/D/A band.
+     * Do not pick arbitrary "rightmost 3 numbers" (V5 bug):
+     * game clock, gold and team scores are nearby.
+     *
+     * This layout prior may fail when a user customizes HUD; such scans
+     * must remain unverified and cannot be silently treated as kills.
      */
-    public static Observation parse(List<NumberBox> raw) {
+    public static Observation parse(List<NumberBox> raw){
         if(raw==null||raw.size()<3)return null;
-        List<NumberBox> digits=new ArrayList<>();
-        for(NumberBox b:raw) {
-            if(b.value>=0 && b.value<=60 && b.x>=.48f && b.x<=.98f &&
-               b.y>=0 && b.y<.155f)digits.add(b);
+        List<NumberBox> numbers=new ArrayList<>();
+        for(NumberBox n:raw){
+            if(n.value>=0 && n.value<=45 && n.x>=.46f && n.x<=.86f &&
+               n.y>=.012f && n.y<=.115f)numbers.add(n);
         }
-        digits.sort(Comparator.comparingDouble(n->n.x));
+        numbers.sort(Comparator.comparingDouble(n->n.x));
         Observation best=null;
-        double bestScore=-1e9;
-        for(int i=0;i<digits.size();i++){
-            NumberBox a=digits.get(i);
-            for(int j=i+1;j<digits.size();j++){
-                NumberBox b=digits.get(j);
-                float dx1=b.x-a.x;
-                if(dx1<.012f||dx1>.105f)continue;
-                for(int k=j+1;k<digits.size();k++){
-                    NumberBox c=digits.get(k);
-                    float dx2=c.x-b.x;
-                    if(dx2<.012f||dx2>.105f)continue;
-                    if(Math.abs(a.y-b.y)>.022f||Math.abs(b.y-c.y)>.022f)continue;
-                    float span=c.x-a.x;
-                    if(span<.055f||span>.195f)continue;
-                    double ratio=Math.max(dx1,dx2)/Math.min(dx1,dx2);
-                    if(ratio>2.5)continue;
-                    // Right-most suitable 3-digit group beats the team K/A score.
-                    double score=c.x*10-Math.abs(dx1-dx2)*9+
-                                 ((a.value<30&&b.value<30&&c.value<40)?.12:0);
+        double bestScore=Double.NEGATIVE_INFINITY;
+        for(int i=0;i<numbers.size();i++){
+            NumberBox a=numbers.get(i);
+            for(int j=i+1;j<numbers.size();j++){
+                NumberBox b=numbers.get(j);
+                double d1=b.x-a.x;
+                if(d1<.018||d1>.090)continue;
+                for(int k=j+1;k<numbers.size();k++){
+                    NumberBox c=numbers.get(k);
+                    double d2=c.x-b.x;
+                    if(d2<.018||d2>.090)continue;
+                    if(Math.abs(a.y-b.y)>.012f||Math.abs(c.y-b.y)>.012f)continue;
+                    if(Math.max(d1,d2)/Math.min(d1,d2)>1.8)continue;
+                    double centerX=(a.x+c.x)/2.0;
+                    double centerY=(a.y+b.y+c.y)/3.0;
+                    if(centerX<.54||centerX>.82||centerY>.11)continue;
+                    // KDA typically near top-middle-right, scoreboard towards
+                    // the centre and clock/minimap at the edges.
+                    double score=-(Math.abs(centerX-.67)*2.5 +
+                         Math.abs(centerY-.055)*3.0 +
+                         Math.abs(d1-d2)*10.0);
                     if(score>bestScore){
                         bestScore=score;
-                        best=new Observation(a.value,b.value,c.value,(a.x+c.x)/2,(a.y+b.y+c.y)/3);
+                        best=new Observation(a.value,b.value,c.value,
+                                (float)centerX,(float)centerY);
                     }
                 }
             }
@@ -76,69 +92,86 @@ public final class KdaCounter {
         public final long atMs;
         public final int individualTotal;
         public final boolean inferred;
-        Kill(long at,int total,boolean inferred) {
-            this.atMs=at;this.individualTotal=total;this.inferred=inferred;
+        Kill(long time,int total,boolean inferred){
+            this.atMs=time;this.individualTotal=total;this.inferred=inferred;
         }
     }
 
-    /**
-     * Two identical consecutive OCR readings are required to confirm each
-     * player-kill counter increase. Separate events are emitted per increment:
-     * 8 verified kills => 8 events; doubles within 1 second are not deduped.
-     */
     public static final class Tracker {
-        private Observation baseline;
-        private Observation pending;
-        private long pendingAt;
-        private int stable=0;
-        private int samples=0;
-        private int trustedSnapshots=0;
+        private Observation baseline, pending;
+        private long pendingAt, lastValidAt=-1L;
+        private int stable, samples, trustedSnapshots, deathsIgnored, ambiguous;
+        private int maxObservedKills=-1;
 
         public boolean isCalibrated(){return baseline!=null;}
-        public int trustedSnapshots(){return trustedSnapshots;}
         public int individualKills(){return baseline==null?-1:baseline.kills;}
+        public int maxObservedKills(){return maxObservedKills;}
+        public int trustedSnapshots(){return trustedSnapshots;}
         public int samples(){return samples;}
+        public int deathsIgnored(){return deathsIgnored;}
+        public int ambiguousEvents(){return ambiguous;}
 
+        /**
+         * Requires 3 consistent OCR readings (K, D AND A). A D-only increase
+         * must never produce a kill. If K and D rise together in the same
+         * unobserved interval, the situation is ambiguous: reject auto-cut.
+         */
         public List<Kill> feed(long atMs,Observation observed){
             samples++;
-            if(observed==null)return Collections.emptyList();
-            if(pending!=null && (Math.abs(pending.x-observed.x)>.045f ||
-                  Math.abs(pending.y-observed.y)>.025f || pending.kills!=observed.kills)) {
+            if(atMs<0||observed==null)return Collections.emptyList();
+            if(baseline!=null && !baseline.sameLocation(observed)){
+                // If KDA is occluded, don't accidentally track nearby team score.
                 pending=null;stable=0;
+                return Collections.emptyList();
             }
             if(baseline!=null &&
-               (Math.abs(baseline.x-observed.x)>.05f ||
-                Math.abs(baseline.y-observed.y)>.035f))
-                return Collections.emptyList();
-            if(baseline!=null && (observed.kills<baseline.kills ||
-                  observed.kills-baseline.kills>5 ||
-                  observed.deaths+2<baseline.deaths ||
-                  observed.assists+2<baseline.assists)) {
+               (observed.kills<baseline.kills ||
+                observed.deaths<baseline.deaths ||
+                observed.assists<baseline.assists ||
+                observed.kills-baseline.kills>5 ||
+                observed.deaths-baseline.deaths>3 ||
+                observed.assists-baseline.assists>9)){
                 pending=null;stable=0;
                 return Collections.emptyList();
             }
-            if(pending==null) {pending=observed;pendingAt=atMs;stable=1;}
-            else stable++;
-            if(stable<2)return Collections.emptyList();
+            if(pending==null || !pending.sameLocation(observed) ||
+               !pending.sameValues(observed)){
+                pending=observed;pendingAt=atMs;stable=1;
+                return Collections.emptyList();
+            }
+            stable++;
+            if(stable<3)return Collections.emptyList();
             trustedSnapshots++;
+            lastValidAt=atMs;
+            pending=null;stable=0;
+
             if(baseline==null){
                 baseline=observed;
-                pending=null;stable=0;
+                maxObservedKills=observed.kills;
                 return Collections.emptyList();
             }
-            if(observed.kills<=baseline.kills){
-                baseline=observed;pending=null;stable=0;
-                return Collections.emptyList();
-            }
-            int delta=observed.kills-baseline.kills;
+            int deltaK=observed.kills-baseline.kills;
+            int deltaD=observed.deaths-baseline.deaths;
+            int deltaA=observed.assists-baseline.assists;
+            maxObservedKills=Math.max(maxObservedKills,observed.kills);
+            baseline=observed;
+
+            if(deltaD>0) deathsIgnored+=deltaD;
+            // A death without a K increase cannot be a hero elimination.
+            if(deltaK<=0)return Collections.emptyList();
+            // If K and D rise in the same uncertain OCR interval, we cannot
+            // guarantee a death-free highlight. Report ambiguity, not a cut.
+            if(deltaD>0){ambiguous+=deltaK;return Collections.emptyList();}
+            // If assists rose by an implausible amount and K changes too,
+            // HUD probably shifted or the triplet was a team-score group.
+            if(deltaA>5){ambiguous+=deltaK;return Collections.emptyList();}
+
             List<Kill> out=new ArrayList<>();
-            // The first observed increased KDA counter appears *after* the kill.
-            // When multiple kills occur between samples, preserve each count.
-            for(int i=0;i<delta;i++){
-                long t=Math.max(0,pendingAt-250L-(delta-1-i)*250L);
-                out.add(new Kill(t,baseline.kills+i+1,delta>1));
+            long eventMs=Math.max(0L,pendingAt-500L);
+            for(int i=0;i<deltaK;i++){
+                long at=Math.max(0L,eventMs-(deltaK-1-i)*330L);
+                out.add(new Kill(at,observed.kills-deltaK+i+1,deltaK>1));
             }
-            baseline=observed;pending=null;stable=0;
             return out;
         }
     }
