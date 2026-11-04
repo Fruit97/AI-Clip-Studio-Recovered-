@@ -46,6 +46,44 @@ public class HighlightPlannerTest {
    List<HighlightPlanner.Range> r=HighlightPlanner.calculate(Arrays.asList(1500L),20000L);
    assertEquals(0L,r.get(0).startMs);assertEquals(4500L,r.get(0).endMs);
  }
+ @Test public void closeKillsMergeIntoSingleContinuousFightNoRepeatedFrames() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
+       Arrays.asList(10000L,11000L,14000L),Collections.emptyList(),60000L);
+   assertEquals(1,r.size());
+   assertEquals(5000L,r.get(0).startMs);
+   assertEquals(17000L,r.get(0).endMs);
+ }
+ @Test public void distantKillsBecomeSeparateSequentialClips() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
+       Arrays.asList(10000L,40000L),Collections.emptyList(),60000L);
+   assertEquals(2,r.size());
+   assertEquals(5000L,r.get(0).startMs);
+   assertEquals(13000L,r.get(0).endMs);
+   assertEquals(35000L,r.get(1).startMs);
+   assertEquals(43000L,r.get(1).endMs);
+ }
+ @Test public void noKillOrOnlyOwnDeathNeverExports() {
+   assertTrue(HighlightPlanner.planFinalVideo(
+       Collections.emptyList(),Arrays.asList(15000L),60000L).isEmpty());
+   assertTrue(HighlightPlanner.planFinalVideo(
+       Arrays.asList(12000L),Arrays.asList(11000L),60000L).isEmpty());
+ }
+ @Test public void postKillDeathTrimIsKeptThroughMerging() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
+       Arrays.asList(10000L,10500L),Arrays.asList(12000L),60000L);
+   assertEquals(1,r.size());
+   assertEquals(5000L,r.get(0).startMs);
+   assertEquals(11200L,r.get(0).endMs);
+ }
+ @Test public void separateClipsDoNotRepeatSameSourceTime() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.planFinalVideo(
+       Arrays.asList(10000L,11000L,25000L,40000L),
+       Collections.emptyList(),60000L);
+   assertEquals(3,r.size());
+   for(int i=1;i<r.size();i++)assertTrue(r.get(i).startMs>r.get(i-1).endMs);
+   long output=0;for(HighlightPlanner.Range v:r)output+=v.endMs-v.startMs;
+   assertEquals(9000L+8000L+8000L,output);
+ }
  @Test public void nullMarkersAreIgnored() {
    List<HighlightPlanner.Range> r=HighlightPlanner.calculate(
        Arrays.asList(10000L,null,20000L),30000L);

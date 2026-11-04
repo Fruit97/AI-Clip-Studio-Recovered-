@@ -79,4 +79,34 @@ public final class HighlightPlanner {
     return out;
   }
 
+  /**
+   * Join touching/overlapping clips into ONE uninterrupted fight. When kills
+   * are close together, the old exporter repeated nearly the same 8 seconds
+   * per kill; the resulting MP4 appeared to jump backwards. Merge only ranges
+   * that overlap or touch. Leave real gaps as hard cuts to the next kill.
+   */
+  public static List<Range> mergeOverlapping(List<Range> ranges){
+    if(ranges==null || ranges.isEmpty())return Collections.emptyList();
+    List<Range> sorted=new ArrayList<>(ranges);
+    sorted.sort((a,b)->Long.compare(a.startMs,b.startMs));
+    List<Range> merged=new ArrayList<>();
+    long start=sorted.get(0).startMs,end=sorted.get(0).endMs;
+    for(int i=1;i<sorted.size();i++){
+      Range next=sorted.get(i);
+      if(next.startMs<=end)end=Math.max(end,next.endMs);
+      else{
+        merged.add(new Range(start,end));
+        start=next.startMs;end=next.endMs;
+      }
+    }
+    merged.add(new Range(start,end));
+    return merged;
+  }
+
+  /** Final MP4 timeline: five seconds before K, three after, without repeats. */
+  public static List<Range> planFinalVideo(List<Long> killsMs,
+      List<Long> deathsMs,long lengthMs){
+    return mergeOverlapping(calculateAvoidDeaths(killsMs,deathsMs,lengthMs));
+  }
+
 }

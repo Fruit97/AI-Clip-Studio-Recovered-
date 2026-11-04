@@ -99,9 +99,10 @@ public class MainActivity extends Activity {
   private float pinnedSwordX=-1f,pinnedSwordY=-1f;
   private boolean capturingHud=false;
   private EditText timeInput;
-  private Button scanButton, cancelButton, exportButton;
+  private Button scanButton, cancelButton, exportButton, playbackButton;
   private Transformer transformer;
   private File outputFile;
+  private Uri lastExportUri;
   private boolean busy = false;
   private boolean scanning = false;
 
@@ -149,8 +150,8 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V8.0",26,TEXT));
-    root.addView(label("ต่อ 1 คิล: 5 วินาทีก่อน + 3 วินาทีหลัง (สูงสุด 8 วินาที)\nอิงเลข K ข้างรูปดาบ • ทำงานในเครื่อง ไม่อัปโหลดวิดีโอ",14,MUTED));
+    root.addView(label("HOK HIGHLIGHT AI V8.1",26,TEXT));
+    root.addView(label("เลือกคิลอัตโนมัติ: 5 วิ ก่อน + 3 วิ หลัง • ต่อทุกช็อตเป็น MP4 เดียว\nเลขดาบ K เพิ่มเท่านั้น • คิลติดกันไม่เล่นภาพซ้ำ",14,MUTED));
 
     LinearLayout importRow=row(root);
     button("เลือกวิดีโอ HOK",importRow,v->chooseVideo());
@@ -212,7 +213,7 @@ public class MainActivity extends Activity {
     root.addView(label("1. ตรวจเลขดาบ K (ของผู้เล่น) เท่านั้น",18,TEXT));
     root.addView(label("ดูเลขดาบเปลี่ยน 0→1→2→3 เท่านั้น • กะโหลก D = ตาย • หมัด A = แอสซิสต์ • ไม่ใช้แบนเนอร์เป็นจุดตัด",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("ตรวจคิลจากเลขดาบ V8.0",scanRow,v->scanForKills());
+    scanButton=button("สแกนคิล + ตัดต่ออัตโนมัติ V8.1",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -238,11 +239,14 @@ public class MainActivity extends Activity {
     root.addView(label("H.264 + เสียงเกม • ขอ bitrate 16 Mbps • สูงสุด 60 FPS (หากต้นฉบับต่ำกว่า 60 จะไม่เพิ่มเฟรม)",13,MUTED));
     LinearLayout exportRow=row(root);
     exportButton=button("สร้างคลิปไฮไลท์",exportRow,v->export());
+    LinearLayout savedRow=row(root);
+    playbackButton=button("เล่น MP4 ไฮไลท์ที่บันทึก",savedRow,v->playSavedHighlight());
+    playbackButton.setEnabled(false);
     progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("V8.0: เลขดาบ K เพิ่มจึงเลือกตัด • ถ้าเลข K กระโดดหลายค่าแต่ระบุเวลาแต่ละคิลไม่ได้ จะให้ตรวจเอง ไม่เดาช็อต • ตัดก่อน 5 วินาที หลัง 3 วินาที",13,MUTED));
+    root.addView(label("V8.1: เมื่อสแกนพบเลข K เพิ่ม จะตัดต่อ MP4 ให้อัตโนมัติ • คิลติดกันต่อเนื่องไม่ฉายภาพซ้ำ • เลข K อ่านไม่ชัดต้องตรวจเอง",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -251,6 +255,7 @@ public class MainActivity extends Activity {
     scanButton.setEnabled(loaded && !busy);
     exportButton.setEnabled(loaded && !busy && !marks.isEmpty());
     cancelButton.setEnabled(scanning);
+    if(playbackButton!=null)playbackButton.setEnabled(lastExportUri!=null && !busy);
   }
 
   private void chooseVideo() {
@@ -281,6 +286,7 @@ public class MainActivity extends Activity {
       if(dur<=0) throw new IllegalArgumentException("ไม่มีข้อมูลเวลาวิดีโอ");
       if(dur>45*60*1000L) {setStatus("คลิปนี้ยาวเกิน 45 นาที");return;}
       durationMs=dur; videoUri=uri; marks.clear(); ownDeathTimes.clear();
+      lastExportUri=null;
       pinnedSwordX=-1f;pinnedSwordY=-1f;
       if(hudMarkedSample!=null){hudMarkedSample.recycle();hudMarkedSample=null;}
       if(hudSample!=null){hudSample.recycle();hudSample=null;}
@@ -302,6 +308,7 @@ public class MainActivity extends Activity {
     } catch(Exception e) {setStatus("อ่านวิดีโอไม่ได้: "+e.getMessage());}
     finally {try {retriever.release();} catch(Exception ignored) {}}
     refreshButtons();
+    if(videoUri!=null && videoUri.equals(uri))scanForKills();
   }
 
   /** Decode a REAL video frame for precise one-tap HUD calibration. */
@@ -590,13 +597,13 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V8.0 "+decision.reason);
+              "V8.1 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V8.0 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V8.1 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -633,7 +640,8 @@ public class MainActivity extends Activity {
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V8.0 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V8.1 ") ||
+               mark.reason.startsWith("V8.0 ") ||
               mark.reason.startsWith("V7.7 ") ||
               mark.reason.startsWith("V7.6 ") ||
               mark.reason.startsWith("V7.5 ") ||
@@ -676,7 +684,10 @@ public class MainActivity extends Activity {
             summary+=" • ลองเลือกเฟรมที่เห็นเลข K ชัดกว่าเดิม แล้วแตะเลขใหม่";
           if(imagesFailed>0||ocrFailed>0)
             summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
-          setStatus("V8.0 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
+          setStatus("V8.1 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
+          // No second button required: verified own-sword K transitions
+          // automatically become one concatenated highlight MP4.
+          if(verified>0)export();
         });
       }catch(Exception error){
         main.post(()->{
@@ -692,11 +703,24 @@ public class MainActivity extends Activity {
     });
   }
 
+  private void playSavedHighlight(){
+    if(lastExportUri==null)return;
+    try{
+      Intent intent=new Intent(Intent.ACTION_VIEW);
+      intent.setDataAndType(lastExportUri,"video/mp4");
+      intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+      startActivity(intent);
+    }catch(Exception e){setStatus("เปิดคลิปที่สร้างไม่ได้: "+e.getMessage());}
+  }
+
   private void export() {
     if(busy || videoUri==null)return;
     List<Long> selected=new ArrayList<>();
     for(KillMark mark:marks) if(mark.enabled)selected.add(mark.when);
-    List<HighlightPlanner.Range> ranges=HighlightPlanner.calculateAvoidDeaths(selected,ownDeathTimes,durationMs);
+    // One continuous fight for overlapping kill windows; hard-cut only
+    // when there is a genuine gap before the next fight.
+    List<HighlightPlanner.Range> ranges=HighlightPlanner.planFinalVideo(
+        selected,ownDeathTimes,durationMs);
     if(ranges.isEmpty()) {setStatus("ยังไม่มีคิลที่เลือก");return;}
     File dir=getExternalFilesDir(Environment.DIRECTORY_MOVIES);
     if(dir==null){setStatus("เปิดพื้นที่จัดเก็บไฟล์ไม่ได้");return;}
@@ -711,7 +735,8 @@ public class MainActivity extends Activity {
     outputFile=new File(dir,"hok_highlight_"+System.currentTimeMillis()+".mp4");
     busy=true;refreshButtons();progress.setProgress(0);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    setStatus("เริ่มเรนเดอร์ "+ranges.size()+" ช่วง • ประมาณ "+HighlightPlanner.format(totalMs)+"…");
+    setStatus("กำลังตัด "+selected.size()+" คิล ต่อเป็น "+ranges.size()+
+        " ช็อตใน MP4 ไฟล์เดียว • ความยาว "+HighlightPlanner.format(totalMs)+"…");
     try {
       List<EditedMediaItem> clips=new ArrayList<>();
       for(HighlightPlanner.Range r:ranges){
@@ -740,9 +765,11 @@ public class MainActivity extends Activity {
               setStatus("เรนเดอร์เสร็จ กำลังบันทึกลงแกลเลอรี…");
               File saved=outputFile;
               worker.execute(()->{
-                try {String dest=saveToGallery(saved);
-                  main.post(()->{finishExport();progress.setProgress(100);
-                    setStatus("บันทึกสำเร็จใน Movies/HOK Highlights\n"+dest);});
+                try {Uri dest=saveToGallery(saved);
+                  main.post(()->{lastExportUri=dest;finishExport();progress.setProgress(100);
+                    setStatus("สร้าง MP4 ไฮไลท์สำเร็จ • "+selected.size()+
+                        " คิล • "+ranges.size()+" ช็อต • บันทึกใน Movies/HOK Highlights"+
+                        "\nกด เล่น MP4 ไฮไลท์ที่บันทึก เพื่อดูผลลัพธ์");});
                 }catch(Exception e){
                   main.post(()->{finishExport();setStatus("เรนเดอร์สำเร็จ แต่ย้ายเข้าแกลเลอรีไม่สำเร็จ: "+e.getMessage()+
                     "\nต้นฉบับผลลัพธ์อยู่ในพื้นที่แอป: "+saved.getAbsolutePath());});
@@ -771,7 +798,7 @@ public class MainActivity extends Activity {
     main.postDelayed(()->{if(busy && transformer!=null)pollExportProgress();},850);
   }
 
-  private String saveToGallery(File source) throws Exception {
+  private Uri saveToGallery(File source) throws Exception {
     ContentResolver resolver=getContentResolver();
     ContentValues values=new ContentValues();
     values.put(MediaStore.Video.Media.DISPLAY_NAME,source.getName());
@@ -789,7 +816,7 @@ public class MainActivity extends Activity {
       ContentValues done=new ContentValues();done.put(MediaStore.Video.Media.IS_PENDING,0);
       resolver.update(dest,done,null,null);
       source.delete();
-      return source.getName();
+      return dest;
     }catch(Exception e){resolver.delete(dest,null,null);throw e;}
   }
 

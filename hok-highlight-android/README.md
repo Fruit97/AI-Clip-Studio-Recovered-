@@ -1,6 +1,14 @@
-# HOK Highlight AI V8.0 — HUD sword number detection with one-tap calibration
+# HOK Highlight AI V8.1 — automatic highlight MP4 assembly
 
 Native Android highlight editor for Xiaomi Pad 6. Fully offline on-device processing; up to 3 GB, 45-minute source video. Preserves game audio and attempts 720p H.264/AAC at 16 Mbps target, maximum 60 FPS (no interpolation for input below 60 FPS). Cuts 5 seconds before and 3 seconds after each selected event, keeping consecutive kills separate.
+
+## V8.1: make confirmed highlights into the final video (November 4, 2026)
+- After selecting a HOK MP4, the app starts detection automatically; the scan and export buttons remain available for manual retry or rescans.
+- When the sword/K reader verifies one or more personal kills, the app automatically invokes Media3 Transformer and assembles all selected source ranges into a SINGLE MP4 without requiring a separate export button.
+- Each kill uses a 5s pre-roll and 3s post-roll, adjusted before detected own deaths and source video boundaries. Overlapping/touching ranges are merged so short consecutive multi-kill fights do not rewind the same footage. Separate fights jump directly to the next highlight (hard cut).
+- The app records the output to Movies/HOK Highlights in Android MediaStore and offers a playback button to open the resulting MP4.
+- JUnit regression tests check consecutive overlapping kills, separated fights, no kill/death-only rejection, and death trimming.
+- This change addresses the handoff from detection to final-video export; it does NOT by itself improve the underlying visual OCR reliability. Real HOK clip 24242.mp4 and on-device video rendering have not been tested end-to-end in this runtime.
 
 ## V8.0: revised detection strategy (November 4, 2026)
 - V7.6 scanned only 82/694 frames with a complete K/D/A OCR group; V7.7 still required three consecutive full K/D/A snapshots before it knew where to look. In intermittent OCR this condition is rarely met.
