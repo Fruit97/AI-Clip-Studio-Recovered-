@@ -1,25 +1,33 @@
-# HOK Highlight AI V5 — Player-owned hero kill detection
+# HOK Highlight AI V6 — Kill-only (not player deaths)
 
-This app is an experimental offline HOK highlight editor built specifically for Android/Xiaomi Pad 6. It imports videos up to 3 GB, 45 minutes, scans at 400ms for banners and about 1.2s for the personal KDA counter. Output: one MP4 segment per player hero kill, from 3s before to 3s after each kill, in H.264/AAC at 720p with 16Mbps target bitrate. It keeps source framerate (60fps input for 60fps output).
+Native offline Android highlight editor for Honor of Kings and Xiaomi Pad 6.
 
-## Why V1–V4 failed
-1. The old visual HUD detector could mistake a monster/boss notification for a hero elimination, especially with Thai interface.
-2. Cooldown suppressed closely spaced multi-kills; highlight planner also merged overlapping kills.
-3. Hard coded RGB/portrait thresholds in V3 missed all kills, and V4 remained a generic banner detector.
+## Main goals
+- Upload from on-device storage (MP4/MOV up to 3 GB, 45 minutes, no video internet upload).
+- Detect **your enemy-hero eliminations only**, and **never automatically select a player's death**, teammate kills, minions, monsters or bosses.
+- One 6-second highlight for each qualifying personal kill (3s before + 3s after), with overlapping kills kept as separate clips.
+- Output 720p H.264 high target 16Mbps + AAC game audio. Original 60fps can be preserved if supported by device encoder. No synthetic 60fps from 30fps source.
 
-## V5 approach
-- OCR **individual player K/D/A HUD** at the top of the game screen. Only a confirmed increase in the player's personal kill stat K yields automatically selected moments; jungle monsters/creeps/neutral objectives do not increment individual player hero kills. Two consecutive compatible OCR observations are required. Each delta becomes one individual mark: if the count rises by 2, create 2 marks.
-- Visual kill banners refine candidate timestamps; they no longer by themselves certify a personal hero kill.
-- If the individual K/D/A cannot be read, generic visual detections are shown **unchecked** for user review. This prevents accidental automatic exporting of monster clips. Use the existing manual mark controls if needed.
-- Remove merging of nearby cuts: close kills stay as separate 6s segments, even when content overlaps.
-- No fixed expected number of kills: 8 kills => 8 marks, 10 => 10, subject to OCR successfully reading an accurate personal KDA. Testing includes counts 8, 10, overlapping timestamps, OCR fluctuation, monster-only events.
+## V5 bug and V6 correction
+V5 selected a loose triplet of OCR numbers in the top HUD; this can be a team score, clock or other numeric information. Misreading "Deaths" as "Kills" could create footage of the user's own death. OCR could also miss kill moments.
 
-**Known limitations**
-- This is not a trained/HOK-validated neural detector; reading small HUD numbers can fail depending on game language, layout, UI hiding or video resolution. An OCR reading from a spectator HUD or team score that mimics a three-number KDA can be incorrect; review marks before export. Some clips may have no readable personal KDA.
-- We were not able to run V5 against the user's original uploaded gameplay video in the active sandbox. Build and synthetic tests are **not** proof of real-game accuracy.
-- Clip generation of overlapping segments duplicates action intentionally to preserve 1 clip per kill.
-- Rendering and scanning use device CPU, memory and storage, must remain in foreground. No network upload.
+V6 now:
+- Tries to identify personal K/D/A as an evenly spaced, stable 3-counter group at the upper HUD; requires **three consistent reads of all K, D and A**, and stable region coordinates.
+- **Only automatically selects** when personal K increases while D does not. A death-only increase is ignored. If both K and D increase in one unobservable interval, mark the timing as ambiguous **unchecked** rather than auto-export a death.
+- Visual HUD kill-banner recognition is only a source of *unverified* candidates, deselected by default. It no longer auto-triggers clips from monster or enemy kills. Visual banner retiming can only be used if OCR explicitly says "YOU have slain..." and is close to the KDA increment.
+- For two kills close together, create **two** clips; the planned segments are **not merged**. No fixed kill count (8, 10, etc.).
+- Status shows last observed K/D/A, number of death-only events excluded and ambiguous events needing review.
 
-Build: Android SDK 36, AGP 8.13.2, Gradle 8.13, JDK 17. `gradle -p hok-highlight-android testDebugUnitTest assembleDebug`.
+## Limitations
+- The KDA OCR is heuristic and needs a HUD layout it can reliably read. Without a known ground-truth dataset of the actual player HUD and a successfully decoded test video, automatic detection accuracy is **not validated**.
+- HUD cropping could still target the wrong numbers or fail if the HUD differs from the images we researched. If personal KDA cannot be calibrated, visual kill proposals remain **unchecked** and manual review is required.
+- A simultaneous true kill and own death is ambiguous and deselected automatically; the user can review that case if desired. This conservative behavior favors no unintended death highlights over perfect recall.
+- The video sample 24218.mp4 was present as a prior upload but could not be decoded in the current runtime, so no timing/kill claims have been made from that source.
+- All analysis and rendering occurs on the Android device: battery/CPU use can be substantial for large videos. Keep the app foregrounded.
 
-Release APK is a GitHub Actions debug-signed build. If an old APK is signed with a different ephemeral key, uninstall it before installing V5 (after backing up app-private files).
+## Build / release
+Java 17; Gradle 8.13; Android Gradle Plugin 8.13.2; SDK 36.
+
+`gradle -p hok-highlight-android clean testDebugUnitTest assembleDebug`
+
+After CI tests pass, GitHub Actions publishes the debug-signed APK to Releases. GitHub runner signing certificates can change between versions: if updating over V5 fails, uninstall it first, after backing up any files saved in app-private storage.
