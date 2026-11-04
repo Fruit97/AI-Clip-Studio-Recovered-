@@ -432,8 +432,18 @@ public class MainActivity extends Activity {
               when=banners.get(nearest).when;
               used[nearest]=true;
             }
-            KillMark m=new KillMark(when,"KDA คิลเพิ่ม (ไม่มีการตายพร้อมกัน) #"+
+            KillMark m=new KillMark(when,"KDA คิลส่วนตัวเพิ่ม #"+
                 kill.individualTotal+(kill.inferred?" (คิลติดกัน)":""));
+            // Reject clips that would show the player's own death during
+            // the 3s pre/post-roll window, including deaths AFTER a kill.
+            for(Long deathAt:personalKda.deathMoments()){
+              if(Math.abs(deathAt-when)<=3400L){
+                m.enabled=false;
+                m.reason="ยังไม่ยืนยัน: มีการตายใกล้คิล #"+
+                   kill.individualTotal+" (ไม่ได้เลือกตัด)";
+                break;
+              }
+            }
             output.add(m);
           }
         }
@@ -469,9 +479,13 @@ public class MainActivity extends Activity {
           }
         }
         final int imagesFailed=frameErrors,ocrFailed=ocrErrors,framesDone=scanned;
-        final int verified=kdaKills.size(),suggested=banners.size();
+        int approved=0;
+        for(KillMark item:output)
+           if(item.enabled && item.reason.startsWith("KDA ")) approved++;
+        final int verified=approved,suggested=banners.size();
         final int deathOnly=personalKda.deathsIgnored();
         final int ambiguous=personalKda.ambiguousEvents();
+        final int deathFiltered=kdaKills.size()-verified;
         final String kdaState=personalKda.isCalibrated() ?
            "K/D/A ล่าสุด "+personalKda.individualKills()+"/"+
            personalKda.individualDeaths()+"/"+
@@ -491,9 +505,10 @@ public class MainActivity extends Activity {
           renderMarks();
           String summary;
           if(verified>0)
-            summary="KDA พบคิลที่ไม่มีการตายร่วม "+verified+
-                " ครั้ง • สร้างได้ "+verified+" ช็อต • "+kdaState+
-                " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง";
+            summary="เลือกเฉพาะคิลฮีโร่ "+verified+
+                " ครั้ง • ช็อต "+verified+" • "+kdaState+
+                " • ไม่เลือกคิลใกล้การตาย "+deathFiltered+
+                " • D เพิ่ม "+deathOnly+" ครั้ง";
           else if(calibrated)
             summary="อ่าน KDA ได้ แต่ยังไม่พบ K เพิ่มโดยไม่มี D เพิ่ม • "+kdaState+
                 " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง"+
