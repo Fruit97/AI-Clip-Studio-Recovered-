@@ -50,17 +50,44 @@ public class KdaHudOcrTest {
     assertEquals(2,obs.deaths);assertEquals(11,obs.assists);
   }
 
-  @Test public void rejectsUntrustedLooseNumericGroupAsCertifiedKill() {
+  @Test public void calibratedSeparateDigitsCanReadRealHudWithoutSlashes() {
+    List<KdaHudOcr.Line> source=Arrays.asList(
+       new KdaHudOcr.Line("11:34",.90f,.035f),
+       new KdaHudOcr.Line("3",.60f,.052f),
+       new KdaHudOcr.Line("1",.67f,.052f),
+       new KdaHudOcr.Line("4",.74f,.052f),
+       new KdaHudOcr.Line("30 FPS",.96f,.035f));
+    KdaCounter.Observation weak=KdaHudOcr.parse(source);
+    assertNotNull(weak);
+    assertFalse(weak.trusted);
+    assertEquals(3,weak.kills);
+    assertEquals(1,weak.deaths);
+    assertEquals(4,weak.assists);
+    KdaCounter.Tracker t=new KdaCounter.Tracker();
+    for(int i=0;i<4;i++) assertTrue(t.feed(i*400,weak).isEmpty());
+    assertFalse("A one-off numeral group is never sufficient",t.isCalibrated());
+    assertTrue(t.feed(1600,weak).isEmpty());
+    assertTrue(t.isCalibrated());
+
+    KdaCounter.Observation death=new KdaCounter.Observation(3,2,4,.67f,.052f,false);
+    for(int i=0;i<3;i++)assertTrue(t.feed(2400+i*400,death).isEmpty());
+    assertEquals(1,t.deathsIgnored());
+
+    KdaCounter.Observation kill=new KdaCounter.Observation(4,2,4,.67f,.052f,false);
+    List<KdaCounter.Kill> kills=Collections.emptyList();
+    for(int i=0;i<3;i++)kills=t.feed(5000+i*400,kill);
+    assertEquals(1,kills.size());
+  }
+
+  @Test public void isolatedLooseDigitsCannotTriggerUncalibratedKills() {
     KdaCounter.Observation weak=KdaCounter.parse(Arrays.asList(
       new KdaCounter.NumberBox(3,.60f,.052f),
       new KdaCounter.NumberBox(1,.67f,.052f),
       new KdaCounter.NumberBox(4,.74f,.052f)));
-    assertNotNull(weak);
-    assertFalse(weak.trusted);
+    assertNotNull(weak);assertFalse(weak.trusted);
     KdaCounter.Tracker t=new KdaCounter.Tracker();
-    for(int i=0;i<5;i++) assertTrue(t.feed(i*400,weak).isEmpty());
+    for(int i=0;i<3;i++)assertTrue(t.feed(i*400,weak).isEmpty());
     assertFalse(t.isCalibrated());
-    assertEquals(5,t.rejectedUntrusted());
   }
 
   @Test public void doubleKillProducesTwoCutsAndNoMonsterCounter() {
