@@ -1,14 +1,19 @@
-# HOK Highlight AI Pad6 V3 — Hero-only kill filter
+# HOK Highlight AI V4 — fix V3's zero-kill regression
 
-Native Android app: choose a HOK gameplay recording (up to 3 GB, 45 minutes), scan every 400ms, review proposed kills, export 3 seconds before and after each selected kill. H.264 + AAC, 720p, high 16 Mbps target, source 60 FPS retained when available. Offline and no root required.
+This on-device Android editor runs offline on Xiaomi Pad 6. Imports MP4/MOV videos under 3 GB and 45 minutes, runs frame analysis every 400 milliseconds, and creates 3s-before / 3s-after highlight segments, preserving source audio. Media3 exports H.264/AAC 720p using a 16 Mbps requested bitrate; 60 FPS is retained when source is 60 FPS (hardware encoders can constrain actual output).
 
-**V3 change: hero-only mode.** Stop including monster, jungle camp, lane minion, Tyrant, Overlord, Tempest Dragon and other neutral objective kills. Text filter checks objective tokens before "you have slain" or "defeated". Visual filter requires a two-sided hero portrait banner against the game-field background. A brief 1.2s lookahead allows later OCR text to veto a proposed kill that turns out to be a monster. This reduces accidental inclusion of monster footage.
+## Why V3 found 0 kills
+V3's added heuristic required a two-portrait RGB contrast score exceeding a hard threshold. On real HOK UI colors it can be below that threshold, and the OCR recognizer bundled in the APK cannot read Thai script. Together this could discard all the original V2 candidate events.
 
-Important limitations:
-* **This is a heuristic, not an AI model trained on actual HOK screenshots.** There can still be missed hero kills and incorrect monster/teammate candidates in different HUD layouts or languages.
-* ML Kit Latin OCR **cannot read Thai glyphs**. Thai mode relies on the visual two-portrait heuristic. Ambiguous results require reviewing the proposed timestamps before export. User needs to delete teammate kills if offered; automatic "my kills only" recognition is not yet proven.
-* You need free internal storage for export; keep app foregrounded during scan/export. Videos are processed on device, not uploaded.
-* No fake FPS interpolation. A 60fps original is expected to remain 60fps (hardware encoder can constrain actual result).
-* Debug APK signed by GitHub runner. If install over V2 says incompatible certificate, uninstall V2 first (back up anything saved in app-private storage).
+## V4 behavior
+- Restore **the original V2 banner image detector and threshold**, not the strict two-portrait filter.
+- Preserve 400ms sampling and English ML Kit OCR.
+- Delay proposing a candidate by 1.2 seconds to allow **explicit** OCR text that identifies a neutral monster (Tyrant, Overlord, Tempest Dragon, minion, creep, etc.) to veto the banner. Don't automatically reject unrecognized/Thai text.
+- Clearly mark visual-only candidates as **unverified**; neither own-hero kills nor exclusion of every monster is guaranteed, as no real HOK model has been trained. Review before export; manually delete non-hero candidates or add missed hero kills.
+- Avoid generic substrings ("lord", "ป่า") that could accidentally refer to a real enemy hero.
 
-Build on Java 17: `gradle -p hok-highlight-android testDebugUnitTest assembleDebug`. Automation on branch hok-highlight-apk-v3 publishes an APK under GitHub Releases only after build and tests pass.
+**Tests** cover the V2 visual regression, objective veto, real hero-kill OCR, repeated banner dedup, end-to-end Android APK build. These are synthetic unit tests, **not validation against actual HOK game recordings**. V4 is a fix for false negatives; distinguishing monsters in Thai HUDs without OCR is still unsolved.
+
+JDK17 / Gradle 8.13 / AGP 8.13.2. Build: `gradle -p hok-highlight-android testDebugUnitTest assembleDebug`. GitHub Actions builds and publishes versioned APK automatically after tests pass.
+
+Debug-signed APK may need uninstall of previous versions before install. Back up files stored in app-private storage first.
