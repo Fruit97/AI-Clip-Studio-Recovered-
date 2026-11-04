@@ -316,9 +316,9 @@ public class MainActivity extends Activity {
               float x=(left + bounds.exactCenterX()*.5f)/w;
               float y=bounds.exactCenterY()*.5f/h;
               boxes.add(new KdaCounter.NumberBox(n,x,y));
-            } else if(number.matches("[0-9]{1,2}[/\\\\-][0-9]{1,2}[/\\\\-][0-9]{1,2}")){
+            } else if(number.matches("[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{1,2}")){
               // Some fonts OCR the full K/D/A string as one element.
-              String[] fields=number.split("[/\\\\-]");
+              String[] fields=number.split("[-/]");
               float mid=(left + bounds.exactCenterX()*.5f)/w;
               float y=bounds.exactCenterY()*.5f/h;
               for(int i=0;i<3;i++)
