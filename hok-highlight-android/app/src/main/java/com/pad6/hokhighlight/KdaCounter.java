@@ -102,6 +102,7 @@ public final class KdaCounter {
         private long pendingAt, lastValidAt=-1L;
         private int stable, samples, trustedSnapshots, deathsIgnored, ambiguous;
         private int maxObservedKills=-1;
+        private final List<Kill> ambiguousCandidates=new ArrayList<>();
 
         public boolean isCalibrated(){return baseline!=null;}
         public int individualKills(){return baseline==null?-1:baseline.kills;}
@@ -110,6 +111,11 @@ public final class KdaCounter {
         public int samples(){return samples;}
         public int deathsIgnored(){return deathsIgnored;}
         public int ambiguousEvents(){return ambiguous;}
+        public List<Kill> drainAmbiguous(){
+            List<Kill> copy=new ArrayList<>(ambiguousCandidates);
+            ambiguousCandidates.clear();
+            return copy;
+        }
 
         /**
          * Requires 3 consistent OCR readings (K, D AND A). A D-only increase
@@ -161,10 +167,24 @@ public final class KdaCounter {
             if(deltaK<=0)return Collections.emptyList();
             // If K and D rise in the same uncertain OCR interval, we cannot
             // guarantee a death-free highlight. Report ambiguity, not a cut.
-            if(deltaD>0){ambiguous+=deltaK;return Collections.emptyList();}
+            if(deltaD>0){
+                ambiguous+=deltaK;
+                for(int i=0;i<deltaK;i++)
+                    ambiguousCandidates.add(new Kill(
+                         Math.max(0L,pendingAt-500L-(deltaK-1-i)*330L),
+                         observed.kills-deltaK+i+1,deltaK>1));
+                return Collections.emptyList();
+            }
             // If assists rose by an implausible amount and K changes too,
             // HUD probably shifted or the triplet was a team-score group.
-            if(deltaA>5){ambiguous+=deltaK;return Collections.emptyList();}
+            if(deltaA>5){
+                ambiguous+=deltaK;
+                for(int i=0;i<deltaK;i++)
+                    ambiguousCandidates.add(new Kill(
+                         Math.max(0L,pendingAt-500L-(deltaK-1-i)*330L),
+                         observed.kills-deltaK+i+1,deltaK>1));
+                return Collections.emptyList();
+            }
 
             List<Kill> out=new ArrayList<>();
             long eventMs=Math.max(0L,pendingAt-500L);
