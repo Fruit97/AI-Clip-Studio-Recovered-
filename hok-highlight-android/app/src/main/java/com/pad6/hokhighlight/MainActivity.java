@@ -435,8 +435,8 @@ public class MainActivity extends Activity {
             readsDone=hudReads,lastKSeen=lastSword,
             swordReadCount=swordTracker.swordReads(),
             fullCount=swordTracker.fullReads(),
-            noise=swordTracker.ignoredNoise(),
-            locked=swordTracker.hasLocation();
+            noise=swordTracker.ignoredNoise();
+        final boolean locked=swordTracker.hasLocation();
         int approved=0;
         for(KillMark item:output)
            if(item.enabled)approved++;
