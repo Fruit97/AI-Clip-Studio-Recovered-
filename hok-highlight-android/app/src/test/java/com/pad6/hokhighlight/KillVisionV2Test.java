@@ -51,24 +51,59 @@ public class KillVisionV2Test {
       for(int x=(int)(x0*w);x<(int)(x1*w);x++)
         pixels[y*w+x]=c;
   }
-  @Test public void trackerEmitsOneEventPerPersistentBanner(){
+  @Test public void rejectsNeutralMonsterTextEvenIfSlain() {
+    String[] neutral = {
+      "You have slain the Tyrant!", "You have slain the Shadow Overlord",
+      "The Tempest Dragon was slain", "You defeated a jungle monster",
+      "Your team defeated the blue buff", "Dragon Vanguard incoming",
+      "คุณสังหารมังกรพายุ", "คุณสังหารมอนสเตอร์", "ฆ่าครีป"
+    };
+    for(String n:neutral)assertEquals(n,KillVisionV2.Category.OTHER,KillVisionV2.parseText(n).category);
+    assertEquals(KillVisionV2.Category.OWN,
+      KillVisionV2.parseText("You have slain an enemy hero").category);
+  }
+
+  @Test public void singleIconBossBannerMustNotLookLikeTwoHeroPortraits() {
+    int w=640,h=360;int[] boss=new int[w*h];java.util.Arrays.fill(boss,0xff668843);
+    rect(boss,w,h,.35,.65,.155,.217,0xff101823);
+    rect(boss,w,h,.205,.315,.13,.235,0xff185ed8);
+    KillVisionV2.VisualSignal result=KillVisionV2.analyze(boss,w,h);
+    assertFalse("single boss icon falsely matched hero portraits",
+      HeroOnlyGuard.isHeroPortraitPair(result));
+  }
+
+  @Test public void trackerEmitsOneEventPerPersistentBannerAfterVetoWindow(){
     KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
     KillVisionV2.VisualSignal cue=new KillVisionV2.VisualSignal(.85,.92,.7,.7);
     KillVisionV2.TextSignal none=KillVisionV2.parseText("");
     assertNull(tracker.feed(1000,cue,none));
-    assertNotNull(tracker.feed(1400,cue,none));
+    assertNull(tracker.feed(1400,cue,none)); // provisional, wait to exclude monsters
     assertNull(tracker.feed(1900,cue,none));
+    assertNotNull(tracker.feed(2600,cue,none));
     assertNull(tracker.feed(4000,cue,none));
     KillVisionV2.VisualSignal ordinary=new KillVisionV2.VisualSignal(.12,.2,.3,.1);
     tracker.feed(4400,ordinary,none);
     tracker.feed(4800,ordinary,none);
     assertNull(tracker.feed(5200,cue,none));
-    assertNotNull(tracker.feed(5600,cue,none));
+    assertNull(tracker.feed(5600,cue,none));
+    assertNotNull(tracker.feed(6800,cue,none));
   }
-  @Test public void ownOcrCanDetectWithoutVisualBanner(){
+
+  @Test public void objectiveTextCancelsPendingVisualEvent(){
+    KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
+    KillVisionV2.VisualSignal cue=new KillVisionV2.VisualSignal(.88,.92,.8,.8);
+    KillVisionV2.TextSignal none=KillVisionV2.parseText("");
+    tracker.feed(1000,cue,none);
+    assertNull(tracker.feed(1400,cue,none));
+    assertNull(tracker.feed(1800,cue,KillVisionV2.parseText("Team defeated Tyrant")));
+    assertNull(tracker.feed(2600,cue,none));
+    assertNull(tracker.finish(4000));
+  }
+
+  @Test public void ownOcrCanDetectWithoutVisualBannerAfterVetoWindow(){
     KillVisionV2.Tracker tracker=new KillVisionV2.Tracker();
     KillVisionV2.VisualSignal poor=new KillVisionV2.VisualSignal(.1,.3,.2,.2);
-    assertNotNull(tracker.feed(3000,poor,KillVisionV2.parseText("You have slain an enemy")));
-    assertNull(tracker.feed(3700,poor,KillVisionV2.parseText("You have slain an enemy")));
+    assertNull(tracker.feed(3000,poor,KillVisionV2.parseText("You have slain an enemy")));
+    assertNotNull(tracker.feed(4200,poor,KillVisionV2.parseText("")));
   }
 }
