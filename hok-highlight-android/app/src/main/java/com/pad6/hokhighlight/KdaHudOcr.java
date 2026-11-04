@@ -41,8 +41,8 @@ public final class KdaHudOcr {
             if(only.matches("[0-9]{1,2}")){
                 looseDigits.add(new KdaCounter.NumberBox(
                     Integer.parseInt(only),line.x,line.y));
-            } else if(only.matches("[0-9]{1,2}\\\\s+[0-9]{1,2}\\\\s+[0-9]{1,2}")){
-                String[] parts=only.split("\\\\s+");
+            } else if(only.matches("[0-9]{1,2}\\s+[0-9]{1,2}\\s+[0-9]{1,2}")){
+                String[] parts=only.split("\\s+");
                 for(int n=0;n<3;n++)
                     looseDigits.add(new KdaCounter.NumberBox(
                         Integer.parseInt(parts[n]),line.x+(n-1)*.05f,line.y));
