@@ -135,7 +135,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V5",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V6",26,TEXT));
     root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -156,9 +156,9 @@ public class MainActivity extends Activity {
     });
 
     root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
-    root.addView(label("V5 นับจากจำนวนคิลส่วนตัวใน KDA ไม่ใช่แค่แถบมอนสเตอร์ • คิลติดกันนับแยก • ถ้า KDA อ่านไม่ได้ จะให้ตรวจแบนเนอร์ที่ยังไม่ยืนยัน",13,MUTED));
+    root.addView(label("V6 เฉพาะคิลฮีโร่ของเรา • แยกจำนวนคิล (K) จากจำนวนตาย (D) และช่วยเหลือ (A) • ตอนตายไม่เลือกตัด • มอนสเตอร์ไม่นับเป็นคิลฮีโร่",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI ตรวจ KDA ฆ่าฮีโร่ V5",scanRow,v->scanForKills());
+    scanButton=button("AI ตรวจคิลฮีโร่ V6",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -188,7 +188,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V5 จำนวนคิลขึ้นกับวิดีโอจริง ไม่ตั้งค่า 9 หรือ 10 จุดตายตัว • การอ่าน KDA จาก HUD ยังเป็นรุ่นทดสอบ กรุณาตรวจจำนวนก่อนเรนเดอร์",13,MUTED));
+    root.addView(label("หมายเหตุ: V6 ไม่ใช้จำนวนช็อตตายตัว • จะเลือกเฉพาะจังหวะที่ KDA ส่วนตัวอ่านได้ต่อเนื่องและคิล (K) เพิ่มโดยไม่เพิ่มการตาย (D) • กรณีอ่านไม่ชัดจะไม่เลือกตัดอัตโนมัติ",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -340,7 +340,7 @@ public class MainActivity extends Activity {
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V5 ตรวจ KDA จำนวนคิลส่วนตัว + แบนเนอร์ประกาศคิล…");
+    setStatus("V6 กำลังอ่าน K/D/A ส่วนตัวเพื่อแยกคิลออกจากการตาย…");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
@@ -368,7 +368,7 @@ public class MainActivity extends Activity {
             if(pixels==null||pixels.length<w*h)pixels=new int[w*h];
             frame.getPixels(pixels,0,w,0,0,w,h);
             KillVisionV2.VisualSignal visual=KillVisionV2.analyze(pixels,w,h);
-            if(i%3==0) {
+            if(i%2==0) {
               try {
                 KdaCounter.Observation current=readPersonalKda(frame,recognizer);
                 kdaKills.addAll(personalKda.feed(atMs,current));
@@ -427,14 +427,13 @@ public class MainActivity extends Activity {
           for(KdaCounter.Kill kill:kdaKills) {
             long when=kill.atMs;
             int nearest=-1;
-            long gap=1250L;
+            long gap=850L;
             for(int j=0;j<banners.size();j++){
               if(used[j])continue;
               // Never use a generic shape-only monster banner to retime a
               // verified player KDA increase.
               String reason=banners.get(j).reason;
-              if(reason.startsWith("ภาพแบนเนอร์") ||
-                 reason.startsWith("ภาพแถบ"))continue;
+              if(!reason.startsWith("OCR พบคิล"))continue;
               long distance=Math.abs(banners.get(j).when-when);
               if(distance<gap){nearest=j;gap=distance;}
             }
@@ -442,21 +441,46 @@ public class MainActivity extends Activity {
               when=banners.get(nearest).when;
               used[nearest]=true;
             }
-            KillMark m=new KillMark(when,"KDA ยืนยันคิลฮีโร่ของเรา #"+
+            KillMark m=new KillMark(when,"KDA คิลเพิ่ม (ไม่มีการตายพร้อมกัน) #"+
                 kill.individualTotal+(kill.inferred?" (คิลติดกัน)":""));
             output.add(m);
           }
-        } else {
-          // No reliable personal KDA: keep *proposed* video banner times visible,
-          // but do not auto-select monsters or teammate kills as own kills.
-          for(KillMark candidate:banners){
-            candidate.enabled=false;
-            candidate.reason="ยังไม่ยืนยัน (ต้องเช็กว่าเป็นคิลฮีโร่): "+candidate.reason;
-            output.add(candidate);
+        }
+
+        // If a death and an increase in K were detected in the same OCR
+        // interval, DO NOT automatically export the interval. Leave it as a
+        // disabled review suggestion rather than creating a death highlight.
+        for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
+          KillMark mark=new KillMark(uncertain.atMs,
+             "ยังไม่ยืนยัน: คิล/ตายเกิดใกล้กัน KDA #"+
+                uncertain.individualTotal+" (ปิดเลือกไว้)");
+          mark.enabled=false;
+          output.add(mark);
+        }
+
+        // Retain possible missing hero kills as UNCHECKED items for review,
+        // without selecting monster kills, teammate kills or player deaths.
+        for(KillMark guess:banners){
+          boolean alreadyCounted=false;
+          for(KillMark selected:output)
+            if(selected.enabled && Math.abs(selected.when-guess.when)<1250L){
+                alreadyCounted=true;break;
+            }
+          if(!alreadyCounted){
+            guess.enabled=false;
+            guess.reason="ยังไม่ยืนยัน: แบนเนอร์ภาพอาจเป็นคิล/มอนสเตอร์/การตาย • "+
+                         guess.reason;
+            output.add(guess);
           }
         }
         final int imagesFailed=frameErrors,ocrFailed=ocrErrors,framesDone=scanned;
         final int verified=kdaKills.size(),suggested=banners.size();
+        final int deathOnly=personalKda.deathsIgnored();
+        final int ambiguous=personalKda.ambiguousEvents();
+        final String kdaState=personalKda.isCalibrated() ?
+           "K/D/A ล่าสุด "+personalKda.individualKills()+"/"+
+           personalKda.individualDeaths()+"/"+
+           personalKda.individualAssists() : "ยังจับตำแหน่ง K/D/A ไม่ได้";
         final boolean calibrated=personalKda.isCalibrated();
         final boolean cancelled=stopScan.get();
         main.post(()->{
@@ -472,13 +496,17 @@ public class MainActivity extends Activity {
           renderMarks();
           String summary;
           if(verified>0)
-            summary="KDA ยืนยันจำนวนคิลฮีโร่ "+verified+
-                " คิล • สร้าง "+verified+" ช็อต (คิลติดกันไม่ถูกควบรวม)";
+            summary="KDA พบคิลที่ไม่มีการตายร่วม "+verified+
+                " ครั้ง • สร้างได้ "+verified+" ช็อต • "+kdaState+
+                " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง";
           else if(calibrated)
-            summary="อ่าน KDA ได้ แต่ยังไม่พบจำนวนคิลส่วนตัวเพิ่ม • มีแบนเนอร์ที่ไม่ยืนยัน "+suggested+" จุด";
+            summary="อ่าน KDA ได้ แต่ยังไม่พบ K เพิ่มโดยไม่มี D เพิ่ม • "+kdaState+
+                " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง"+
+                " • แบนเนอร์ที่ยังไม่ยืนยัน "+suggested+" จุด";
           else
             summary="ยังอ่านตำแหน่ง KDA ส่วนตัวไม่สำเร็จ • พบแบนเนอร์ "+suggested+
                 " จุด ซึ่งยกเลิกเลือกไว้เพื่อป้องกันตัดมอนสเตอร์ผิด";
+          if(ambiguous>0) summary+=" • ช่วงคิล+ตายที่ต้องตรวจ "+ambiguous+" จุด (ไม่ได้เลือกตัด)";
           if(framesDone==0)summary="ไม่สามารถถอดภาพคลิปได้ ตรวจสอบไฟล์ MP4 ที่เปิดได้";
           if(imagesFailed>0||ocrFailed>0)
             summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
