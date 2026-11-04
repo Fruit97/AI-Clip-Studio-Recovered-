@@ -1,7 +1,7 @@
-name: HOK Highlight AI V4 APK
+name: HOK Highlight AI V5 APK
 on:
   push:
-    branches: [hok-highlight-apk-v4]
+    branches: [hok-highlight-apk-v5]
     paths:
       - 'hok-highlight-android/**'
       - '.github/workflows/hok-highlight-apk.yml'
@@ -44,7 +44,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: HOK-Highlight-AI-APK-V4
+          name: HOK-Highlight-AI-APK-V5
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -54,9 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v4.apk
-          if gh release view hok-highlight-ai-v4 >/dev/null 2>&1; then
-            gh release upload hok-highlight-ai-v4 HOK-Highlight-AI-Pad6-v4.apk --clobber
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v5.apk
+          if gh release view hok-highlight-ai-v5 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v5 HOK-Highlight-AI-Pad6-v5.apk --clobber
           else
-            gh release create hok-highlight-ai-v4 HOK-Highlight-AI-Pad6-v4.apk --target hok-highlight-apk-v4 --title 'HOK Highlight AI Pad6 v4.0' --notes 'V4 hotfix: restore the V2 banner scan recall, reject objectively identified jungle monster/boss text only, keep a 1.2 second veto window. Visual-only marks need review; still experimental.'
+            gh release create hok-highlight-ai-v5 HOK-Highlight-AI-Pad6-v5.apk --target hok-highlight-apk-v5 --title 'HOK Highlight AI Pad6 v5.0' --notes 'V5 beta: individual KDA counter changes drive confirmed hero kill clip counts. No fixed shot count; close kills no longer merge. Visual-only detections remain deselected. Requires user verification.'
           fi
