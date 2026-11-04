@@ -28,4 +28,20 @@ public class HighlightPlannerTest {
    assertEquals(0,r.get(0).startMs);assertEquals(60000,r.get(1).endMs);
  }
  @Test public void noKills() {assertTrue(HighlightPlanner.calculate(Collections.emptyList(),60000).isEmpty());}
+ @Test public void deathInsidePostKillTailIsTrimmedBeforeDeath() {
+   List<HighlightPlanner.Range> r=HighlightPlanner.calculateAvoidDeaths(
+       Arrays.asList(10000L),Arrays.asList(12000L),30000);
+   assertEquals(1,r.size());
+   assertEquals(7000L,r.get(0).startMs);
+   assertEquals(11200L,r.get(0).endMs);
+ }
+ @Test public void severalHeroKillsStaySeparateWithoutShowingDeath(){
+   List<HighlightPlanner.Range> r=HighlightPlanner.calculateAvoidDeaths(
+       Arrays.asList(10000L,11000L,19000L),
+       Arrays.asList(13000L),30000L);
+   assertEquals(3,r.size());
+   assertEquals(12200L,r.get(1).endMs);
+   assertEquals(22000L,r.get(2).endMs);
+ }
+
 }
