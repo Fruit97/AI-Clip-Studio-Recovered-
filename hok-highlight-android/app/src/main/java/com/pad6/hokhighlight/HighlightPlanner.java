@@ -34,4 +34,26 @@ public final class HighlightPlanner {
     }
     return out;
   }
+  /**
+   * Keep the player's own death out of the rendered clip. The death timestamp
+   * comes from a confirmed rise in D. Trim before the death rather than
+   * leaving a death screen in the 3-second post-kill tail.
+   */
+  public static List<Range> calculateAvoidDeaths(
+      List<Long> killsMs,List<Long> deathsMs,long videoLengthMs){
+    List<Range> base=calculate(killsMs,videoLengthMs);
+    if(deathsMs==null||deathsMs.isEmpty())return base;
+    List<Range> out=new ArrayList<>();
+    for(Range r:base){
+      long a=r.startMs,b=r.endMs;
+      for(Long when:deathsMs){
+        if(when==null)continue;
+        long cutoff=Math.max(0L,when-800L);
+        if(cutoff>a && cutoff<b)b=cutoff;
+      }
+      if(b>a+350L)out.add(new Range(a,b));
+    }
+    return out;
+  }
+
 }
