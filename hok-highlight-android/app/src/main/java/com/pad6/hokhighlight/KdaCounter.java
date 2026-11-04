@@ -107,6 +107,7 @@ public final class KdaCounter {
         private int stable, samples, trustedSnapshots, deathsIgnored, ambiguous;
         private int maxObservedKills=-1;
         private int rejectedUntrusted=0;
+        private final List<Long> deathMoments=new ArrayList<>();
         private final List<Kill> ambiguousCandidates=new ArrayList<>();
 
         public boolean isCalibrated(){return baseline!=null;}
@@ -119,6 +120,7 @@ public final class KdaCounter {
         public int deathsIgnored(){return deathsIgnored;}
         public int ambiguousEvents(){return ambiguous;}
         public int rejectedUntrusted(){return rejectedUntrusted;}
+        public List<Long> deathMoments(){return new ArrayList<>(deathMoments);}
         public List<Kill> drainAmbiguous(){
             List<Kill> copy=new ArrayList<>(ambiguousCandidates);
             ambiguousCandidates.clear();
@@ -171,7 +173,10 @@ public final class KdaCounter {
             maxObservedKills=Math.max(maxObservedKills,observed.kills);
             baseline=observed;
 
-            if(deltaD>0) deathsIgnored+=deltaD;
+            if(deltaD>0) {
+                deathsIgnored+=deltaD;
+                deathMoments.add(pendingAt);
+            }
             // A death without a K increase cannot be a hero elimination.
             if(deltaK<=0)return Collections.emptyList();
             // If K and D rise in the same uncertain OCR interval, we cannot
