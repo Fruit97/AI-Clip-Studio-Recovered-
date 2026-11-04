@@ -1,0 +1,43 @@
+name: HOK Highlight Android Debug APK
+on:
+  push:
+    branches: [hok-highlight-apk-v1]
+    paths:
+      - 'hok-highlight-android/**'
+      - '.github/workflows/hok-highlight-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Configure Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+          cache-read-only: false
+      - name: Build signed debug APK and run unit tests
+        run: gradle -p hok-highlight-android --no-daemon clean testDebugUnitTest assembleDebug --stacktrace
+      - name: Verify APK exists and nonempty
+        run: test -s hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HOK-Highlight-AI-APK
+          path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
