@@ -96,8 +96,13 @@ public final class KdaCounter {
         public final long atMs;
         public final int individualTotal;
         public final boolean inferred;
+        public final boolean trustedHud;
         Kill(long time,int total,boolean inferred){
+            this(time,total,inferred,true);
+        }
+        Kill(long time,int total,boolean inferred,boolean trustedHud){
             this.atMs=time;this.individualTotal=total;this.inferred=inferred;
+            this.trustedHud=trustedHud;
         }
     }
 
@@ -164,7 +169,8 @@ public final class KdaCounter {
                 return Collections.emptyList();
             }
             stable++;
-            int required=(baseline==null&&!observed.trusted)?5:3;
+            int required=(baseline==null&&!observed.trusted)?5:
+                         observed.trusted?2:3;
             if(stable<required)return Collections.emptyList();
             trustedSnapshots++;
             lastValidAt=atMs;
@@ -175,6 +181,9 @@ public final class KdaCounter {
                 maxObservedKills=observed.kills;
                 return Collections.emptyList();
             }
+            // Trust the entire interval only when BOTH snapshots identify
+            // an explicit personal K/D/A readout, not inferred HUD numerals.
+            boolean verifiedHud=baseline.trusted && observed.trusted;
             int deltaK=observed.kills-baseline.kills;
             int deltaD=observed.deaths-baseline.deaths;
             int deltaA=observed.assists-baseline.assists;
@@ -212,7 +221,8 @@ public final class KdaCounter {
             long eventMs=Math.max(0L,pendingAt-500L);
             for(int i=0;i<deltaK;i++){
                 long at=Math.max(0L,eventMs-(deltaK-1-i)*330L);
-                out.add(new Kill(at,observed.kills-deltaK+i+1,deltaK>1));
+                out.add(new Kill(at,observed.kills-deltaK+i+1,deltaK>1,
+                                 verifiedHud));
             }
             return out;
         }
