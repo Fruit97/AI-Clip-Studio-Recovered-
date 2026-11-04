@@ -293,43 +293,34 @@ public class MainActivity extends Activity {
    * bundled ML Kit Latin OCR does not support Thai script.
    */
   /** Read the personal K/D/A numerals from the in-game top HUD, not team score. */
+  /** Personal K/D/A only. Full slash-separated OCR is required for auto cuts. */
   private KdaCounter.Observation readPersonalKda(Bitmap frame,TextRecognizer recognizer)
       throws Exception {
     int w=frame.getWidth(),h=frame.getHeight();
-    int left=(int)(w*.40f);
+    int left=(int)(w*.37f);
     int cw=w-left;
-    int ch=Math.max(1,(int)(h*.16f));
+    int ch=Math.max(1,(int)(h*.20f));
     Bitmap crop=null,upscaled=null;
     try {
       crop=Bitmap.createBitmap(frame,left,0,cw,ch);
       upscaled=Bitmap.createScaledBitmap(crop,cw*2,ch*2,true);
       Text ocr=Tasks.await(recognizer.process(InputImage.fromBitmap(upscaled,0)));
-      List<KdaCounter.NumberBox> boxes=new ArrayList<>();
-      for(Text.TextBlock block:ocr.getTextBlocks()){
+      List<KdaHudOcr.Line> lines=new ArrayList<>();
+      for(Text.TextBlock block:ocr.getTextBlocks())
         for(Text.Line line:block.getLines()){
+          Rect b=line.getBoundingBox();
+          if(b!=null)
+            lines.add(new KdaHudOcr.Line(line.getText(),
+                 (left+b.exactCenterX()*.5f)/w,b.exactCenterY()*.5f/h));
           for(Text.Element element:line.getElements()){
-            Rect bounds=element.getBoundingBox();
-            if(bounds==null)continue;
-            String number=element.getText().trim();
-            if(number.matches("[0-9]{1,2}")){
-              int n=Integer.parseInt(number);
-              float x=(left + bounds.exactCenterX()*.5f)/w;
-              float y=bounds.exactCenterY()*.5f/h;
-              boxes.add(new KdaCounter.NumberBox(n,x,y));
-            } else if(number.matches("[0-9]{1,2}[^0-9]+[0-9]{1,2}[^0-9]+[0-9]{1,2}")){
-              // Some game fonts OCR the K/D/A triplet as one word/line.
-              String[] fields=number.split("[^0-9]+");
-              float mid=(left + bounds.exactCenterX()*.5f)/w;
-              float y=bounds.exactCenterY()*.5f/h;
-              for(int i=0;i<3;i++)
-                boxes.add(new KdaCounter.NumberBox(
-                    Integer.parseInt(fields[i]),mid+(i-1)*.043f,y));
-            }
+            Rect eb=element.getBoundingBox();
+            if(eb!=null)
+              lines.add(new KdaHudOcr.Line(element.getText(),
+                   (left+eb.exactCenterX()*.5f)/w,eb.exactCenterY()*.5f/h));
           }
         }
-      }
-      return KdaCounter.parse(boxes);
-    }finally{
+      return KdaHudOcr.parse(lines);
+    }finally {
       if(upscaled!=null)upscaled.recycle();
       if(crop!=null)crop.recycle();
     }
@@ -340,7 +331,7 @@ public class MainActivity extends Activity {
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V6 กำลังอ่าน K/D/A ส่วนตัวเพื่อแยกคิลออกจากการตาย…");
+    setStatus("V6 กำลังอ่าน K/D/A แบบมีเครื่องหมาย / เพื่อแยกคิลออกจากการตาย…");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
@@ -362,7 +353,7 @@ public class MainActivity extends Activity {
           Bitmap frame=null,bannerCrop=null;
           try {
             frame=retriever.getScaledFrameAtTime(atMs*1000L,
-                MediaMetadataRetriever.OPTION_CLOSEST,960,540);
+                MediaMetadataRetriever.OPTION_CLOSEST,1280,720);
             if(frame==null){frameErrors++;continue;}
             int w=frame.getWidth(),h=frame.getHeight();
             if(pixels==null||pixels.length<w*h)pixels=new int[w*h];
@@ -461,6 +452,10 @@ public class MainActivity extends Activity {
         // Retain possible missing hero kills as UNCHECKED items for review,
         // without selecting monster kills, teammate kills or player deaths.
         for(KillMark guess:banners){
+          boolean deathNearby=false;
+          for(Long diedAt:personalKda.deathMoments())
+            if(Math.abs(guess.when-diedAt)<2200L){deathNearby=true;break;}
+          if(deathNearby)continue;
           boolean alreadyCounted=false;
           for(KillMark selected:output)
             if(selected.enabled && Math.abs(selected.when-guess.when)<1250L){
@@ -504,7 +499,7 @@ public class MainActivity extends Activity {
                 " • ไม่เลือกช่วงตาย "+deathOnly+" ครั้ง"+
                 " • แบนเนอร์ที่ยังไม่ยืนยัน "+suggested+" จุด";
           else
-            summary="ยังอ่านตำแหน่ง KDA ส่วนตัวไม่สำเร็จ • พบแบนเนอร์ "+suggested+
+            summary="ยังอ่าน K/D/A รูปแบบ K/D/A ไม่สำเร็จ • พบแบนเนอร์ "+suggested+
                 " จุด ซึ่งยกเลิกเลือกไว้เพื่อป้องกันตัดมอนสเตอร์ผิด";
           if(ambiguous>0) summary+=" • ช่วงคิล+ตายที่ต้องตรวจ "+ambiguous+" จุด (ไม่ได้เลือกตัด)";
           if(framesDone==0)summary="ไม่สามารถถอดภาพคลิปได้ ตรวจสอบไฟล์ MP4 ที่เปิดได้";
