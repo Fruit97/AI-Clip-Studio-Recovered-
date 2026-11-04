@@ -31,7 +31,7 @@ public class KdaCounterTest {
     assertTrue(confirm(t,0,2,1,0).isEmpty());
     assertTrue(t.feed(2000,score(9,1,0)).isEmpty());
     assertTrue(t.feed(2800,score(2,1,0)).isEmpty());
-    assertTrue(t.feed(3600,score(3,1,0)).isEmpty());
+    assertTrue(t.feed(3600,score(2,1,0)).isEmpty());
     assertEquals(1,confirm(t,4200,3,1,0).size());
   }
   @Test public void jungleMonstersDoNotChangePersonalKda() {
