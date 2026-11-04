@@ -150,8 +150,8 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V8.1",26,TEXT));
-    root.addView(label("เลือกคิลอัตโนมัติ: 5 วิ ก่อน + 3 วิ หลัง • ต่อทุกช็อตเป็น MP4 เดียว\nเลขดาบ K เพิ่มเท่านั้น • คิลติดกันไม่เล่นภาพซ้ำ",14,MUTED));
+    root.addView(label("HOK HIGHLIGHT AI V8.2",26,TEXT));
+    root.addView(label("เลือกคิลอัตโนมัติ: 5 วิ ก่อน + 1 วิ หลัง • ต่อทุกช็อตเป็น MP4 เดียว\nเลขดาบ K เพิ่มเท่านั้น • คิลติดกันไม่เล่นภาพซ้ำ",14,MUTED));
 
     LinearLayout importRow=row(root);
     button("เลือกวิดีโอ HOK",importRow,v->chooseVideo());
@@ -213,7 +213,7 @@ public class MainActivity extends Activity {
     root.addView(label("1. ตรวจเลขดาบ K (ของผู้เล่น) เท่านั้น",18,TEXT));
     root.addView(label("ดูเลขดาบเปลี่ยน 0→1→2→3 เท่านั้น • กะโหลก D = ตาย • หมัด A = แอสซิสต์ • ไม่ใช้แบนเนอร์เป็นจุดตัด",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("สแกนคิล + ตัดต่ออัตโนมัติ V8.1",scanRow,v->scanForKills());
+    scanButton=button("สแกนคิล + ตัดต่ออัตโนมัติ V8.2",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -246,7 +246,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("V8.1: เมื่อสแกนพบเลข K เพิ่ม จะตัดต่อ MP4 ให้อัตโนมัติ • คิลติดกันต่อเนื่องไม่ฉายภาพซ้ำ • เลข K อ่านไม่ชัดต้องตรวจเอง",13,MUTED));
+    root.addView(label("V8.2: เมื่อสแกนพบเลข K เพิ่ม จะตัดต่อ MP4 ให้อัตโนมัติ • คิลติดกันต่อเนื่องไม่ฉายภาพซ้ำ • เลข K อ่านไม่ชัดต้องตรวจเอง",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -597,13 +597,13 @@ public class MainActivity extends Activity {
         List<KillMark> output=new ArrayList<>();
         for(KillReconcilerV7.Decision decision:decisions){
           KillMark mark=new KillMark(decision.atMs,
-              "V8.1 "+decision.reason);
+              "V8.2 "+decision.reason);
           mark.enabled=decision.selected;
           output.add(mark);
         }
         for(KdaCounter.Kill uncertain:personalKda.drainAmbiguous()){
           KillMark mark=new KillMark(uncertain.atMs,
-             "V8.1 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
+             "V8.2 คิล/ตายเพิ่มพร้อมกัน (ตรวจเองก่อน): KDA #"+
                 uncertain.individualTotal);
           mark.enabled=false;
           output.add(mark);
@@ -640,7 +640,7 @@ public class MainActivity extends Activity {
           }
           ownDeathTimes.clear();
           ownDeathTimes.addAll(deathSnapshots);
-          marks.removeIf(mark->mark.reason.startsWith("V8.1 ") ||
+          marks.removeIf(mark->mark.reason.startsWith("V8.2 ") ||
                mark.reason.startsWith("V8.0 ") ||
               mark.reason.startsWith("V7.7 ") ||
               mark.reason.startsWith("V7.6 ") ||
@@ -684,7 +684,7 @@ public class MainActivity extends Activity {
             summary+=" • ลองเลือกเฟรมที่เห็นเลข K ชัดกว่าเดิม แล้วแตะเลขใหม่";
           if(imagesFailed>0||ocrFailed>0)
             summary+=" • ภาพเสีย "+imagesFailed+" / OCR ผิดพลาด "+ocrFailed;
-          setStatus("V8.1 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
+          setStatus("V8.2 "+(cancelled?"ยกเลิกสแกน • ":"สแกนเสร็จ • ")+summary);
           // No second button required: verified own-sword K transitions
           // automatically become one concatenated highlight MP4.
           if(verified>0)export();

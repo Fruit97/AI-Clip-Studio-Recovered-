@@ -5,10 +5,10 @@ import java.util.List;
 
 public final class HighlightPlanner {
   private HighlightPlanner() {}
-  // One confirmed hero elimination: 5 seconds of approach and 3 seconds
+  // One confirmed hero elimination: 5 seconds of approach and 1 second
   // of aftermath, clipped to the source recording boundaries.
   public static final long BEFORE_KILL_MS = 5000L;
-  public static final long AFTER_KILL_MS = 3000L;
+  public static final long AFTER_KILL_MS = 1000L;
   public static final long DEATH_SAFETY_MS = 800L;
   public static final class Range {
     public final long startMs;
@@ -81,7 +81,7 @@ public final class HighlightPlanner {
 
   /**
    * Join touching/overlapping clips into ONE uninterrupted fight. When kills
-   * are close together, the old exporter repeated nearly the same 8 seconds
+   * are close together, the old exporter repeated nearly the same source seconds
    * per kill; the resulting MP4 appeared to jump backwards. Merge only ranges
    * that overlap or touch. Leave real gaps as hard cuts to the next kill.
    */

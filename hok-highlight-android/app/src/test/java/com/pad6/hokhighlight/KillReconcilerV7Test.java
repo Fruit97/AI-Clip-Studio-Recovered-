@@ -31,7 +31,7 @@ public class KillReconcilerV7Test {
     assertEquals(1,selected(d));
     List<HighlightPlanner.Range> shots=HighlightPlanner.calculateAvoidDeaths(
         Arrays.asList(d.get(0).atMs),Arrays.asList(11800L),20000L);
-    assertEquals(1,shots.size());assertEquals(11000L,shots.get(0).endMs);
+    assertEquals(1,shots.size());assertEquals(10000L,shots.get(0).endMs);
   }
   @Test public void weakKdaNearDeathIsNotSelected() {
     assertEquals(0,selected(KillReconcilerV7.reconcile(
