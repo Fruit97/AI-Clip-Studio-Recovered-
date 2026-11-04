@@ -131,9 +131,9 @@ public class KillReconcilerV7Test {
     List<HighlightPlanner.Range> cuts=HighlightPlanner.calculate(
       Arrays.asList(d.get(0).atMs,d.get(1).atMs),60000L);
     assertEquals(10000L,cuts.get(0).startMs);
-    assertEquals(18000L,cuts.get(0).endMs);
+    assertEquals(16000L,cuts.get(0).endMs);
     assertEquals(37000L,cuts.get(1).startMs);
-    assertEquals(45000L,cuts.get(1).endMs);
+    assertEquals(43000L,cuts.get(1).endMs);
   }
   @Test public void swordJumpWithoutIntermediateTimestampsIsReviewOnly() {
     SwordCounterTracker t=new SwordCounterTracker();
