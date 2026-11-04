@@ -31,7 +31,7 @@ public final class KillVisionV2 {
           "you are defeated", "an ally has been defeated", "an ally has been slain",
           "enemy double kill", "enemy triple kill", "enemy quadra kill",
           "enemy penta kill", "enemy legendary", "enemy godlike",
-          "defeat!", "victory", "destroyed a tower", "tower destroyed",
+          "victory", "destroyed a tower", "tower destroyed",
           "ป้อม", "คุณถูกสังหาร", "คุณถูกกำจัด", "ถูกสังหาร", "พ่ายแพ้"
         };
         for (String s:negative) if (text.contains(s)) return new TextSignal(Category.OTHER,s);
@@ -42,10 +42,10 @@ public final class KillVisionV2 {
         };
         for (String s:own) if (text.contains(s)) return new TextSignal(Category.OWN,s);
         String[] maybe = {
-          "first blood", "double kill", "triple kill", "quadra kill",
+          "first blood", "double kill", "doublekill", "triple kill", "triplekill", "quadra kill", "quadrakill",
           "quad kill", "penta kill", "pentakill", "godlike", "legendary",
           "unstoppable", "dominating", "killing spree", "mega kill",
-          "defeated", "slain", "kill", "สังหาร", "กำจัด", "ฆ่าสอง", "ฆ่าสาม",
+          "defeated", "defeat", "slain", "สังหาร", "กำจัด", "ฆ่าสอง", "ฆ่าสาม",
           "ฆ่าสี่", "ฆ่าห้า", "ดับเบิลคิล", "ทริปเปิลคิล"
         };
         for (String s:maybe) if (text.contains(s)) return new TextSignal(Category.MAYBE,s);
@@ -157,7 +157,8 @@ public final class KillVisionV2 {
             boolean own=text.category==Category.OWN;
             boolean named=text.category==Category.MAYBE;
             boolean newNamed=named && (!text.label.equals(previousLabel) || previousCategory!=Category.MAYBE);
-            boolean event=own || (named && (visible || vision.score>.35) && newNamed)
+            boolean newOwn=own && (!active || previousCategory!=Category.OWN || !text.label.equals(previousLabel));
+            boolean event=newOwn || (named && (visible || vision.score>.35) && newNamed)
                     || (visible && streak>=2 && !active);
             if(!event || atMs-lastEvent<MIN_GAP_MS) return null;
             lastEvent=atMs;active=true;
