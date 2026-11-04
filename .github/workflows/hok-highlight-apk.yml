@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -48,3 +48,15 @@ jobs:
           path: hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish stable APK download (push only)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp hok-highlight-android/app/build/outputs/apk/debug/app-debug.apk HOK-Highlight-AI-Pad6-v1.apk
+          if gh release view hok-highlight-ai-v1 >/dev/null 2>&1; then
+            gh release upload hok-highlight-ai-v1 HOK-Highlight-AI-Pad6-v1.apk --clobber
+          else
+            gh release create hok-highlight-ai-v1 HOK-Highlight-AI-Pad6-v1.apk --target hok-highlight-apk-v1 --title 'HOK Highlight AI Pad6 v1.0' --notes 'On-device test build: English OCR candidate detector and manual marker fallback. Verify markers before rendering.'
+          fi
