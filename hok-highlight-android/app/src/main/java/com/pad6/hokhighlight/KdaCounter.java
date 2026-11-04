@@ -106,6 +106,8 @@ public final class KdaCounter {
 
         public boolean isCalibrated(){return baseline!=null;}
         public int individualKills(){return baseline==null?-1:baseline.kills;}
+        public int individualDeaths(){return baseline==null?-1:baseline.deaths;}
+        public int individualAssists(){return baseline==null?-1:baseline.assists;}
         public int maxObservedKills(){return maxObservedKills;}
         public int trustedSnapshots(){return trustedSnapshots;}
         public int samples(){return samples;}
