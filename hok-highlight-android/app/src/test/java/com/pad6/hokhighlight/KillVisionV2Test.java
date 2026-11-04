@@ -15,6 +15,10 @@ public class KillVisionV2Test {
       KillVisionV2.parseText("QUADRAKILL!").category);
     assertEquals(KillVisionV2.Category.MAYBE,
       KillVisionV2.parseText("Godlike!").category);
+    assertEquals(KillVisionV2.Category.MAYBE,
+      KillVisionV2.parseText("DEFEAT!").category);
+    assertEquals(KillVisionV2.Category.NONE,
+      KillVisionV2.parseText("Tap your skills").category);
     assertEquals(KillVisionV2.Category.NONE,
       KillVisionV2.parseText("Retreat! Attack the tower").category);
   }
