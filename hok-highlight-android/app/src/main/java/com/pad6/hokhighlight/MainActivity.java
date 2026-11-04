@@ -316,9 +316,9 @@ public class MainActivity extends Activity {
               float x=(left + bounds.exactCenterX()*.5f)/w;
               float y=bounds.exactCenterY()*.5f/h;
               boxes.add(new KdaCounter.NumberBox(n,x,y));
-            } else if(number.matches("[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{1,2}")){
-              // Some fonts OCR the full K/D/A string as one element.
-              String[] fields=number.split("[-/]");
+            } else if(number.matches("[0-9]{1,2}[^0-9]+[0-9]{1,2}[^0-9]+[0-9]{1,2}")){
+              // Some game fonts OCR the K/D/A triplet as one word/line.
+              String[] fields=number.split("[^0-9]+");
               float mid=(left + bounds.exactCenterX()*.5f)/w;
               float y=bounds.exactCenterY()*.5f/h;
               for(int i=0;i<3;i++)
@@ -427,9 +427,14 @@ public class MainActivity extends Activity {
           for(KdaCounter.Kill kill:kdaKills) {
             long when=kill.atMs;
             int nearest=-1;
-            long gap=2600L;
+            long gap=1250L;
             for(int j=0;j<banners.size();j++){
               if(used[j])continue;
+              // Never use a generic shape-only monster banner to retime a
+              // verified player KDA increase.
+              String reason=banners.get(j).reason;
+              if(reason.startsWith("ภาพแบนเนอร์") ||
+                 reason.startsWith("ภาพแถบ"))continue;
               long distance=Math.abs(banners.get(j).when-when);
               if(distance<gap){nearest=j;gap=distance;}
             }
