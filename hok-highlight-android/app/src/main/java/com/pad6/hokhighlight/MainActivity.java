@@ -133,7 +133,7 @@ public class MainActivity extends Activity {
     root.setPadding(dp(16),dp(22),dp(16),dp(28)); root.setOrientation(LinearLayout.VERTICAL);
     scroller.addView(root);setContentView(scroller);
 
-    root.addView(label("HOK HIGHLIGHT AI V3",26,TEXT));
+    root.addView(label("HOK HIGHLIGHT AI V4",26,TEXT));
     root.addView(label("ตัดไฮไลท์ 3 วินาทีก่อนคิล + 3 วินาทีหลังคิล\nทำงานในเครื่อง ไม่อัปโหลดวิดีโอขึ้นเซิร์ฟเวอร์",14,MUTED));
 
     LinearLayout importRow=row(root);
@@ -154,9 +154,9 @@ public class MainActivity extends Activity {
     });
 
     root.addView(label("1. ค้นหาคิลจากภาพแบนเนอร์และข้อความ",18,TEXT));
-    root.addView(label("V3 โหมดเฉพาะคิลฮีโร่ศัตรู • ไม่เอามังกร บอส ครีป หรือมอนสเตอร์ • ใช้ภาพฮีโร่สองฝั่งและข้อความประกอบ • โปรดตรวจคิลของเพื่อนร่วมทีมก่อนส่งออก",13,MUTED));
+    root.addView(label("V4 ค้นแบนเนอร์คิลเหมือน V2 เพื่อไม่พลาดคิลฮีโร่ • ตัดออกเมื่อ OCR ยืนยันว่าเป็นมังกร/บอส/ครีป • จุดที่อ่านไม่ชัดต้องตรวจด้วยตัวเอง",13,MUTED));
     LinearLayout scanRow=row(root);
-    scanButton=button("AI ค้นคิลฮีโร่ V3",scanRow,v->scanForKills());
+    scanButton=button("AI ค้นหาคิล V4",scanRow,v->scanForKills());
     cancelButton=button("ยกเลิกสแกน",scanRow,v->{stopScan.set(true);setStatus("กำลังยุติสแกน…");});
     cancelButton.setEnabled(false);
 
@@ -186,7 +186,7 @@ public class MainActivity extends Activity {
     progress.setMax(100);progress.setProgress(0);
     root.addView(progress,new LinearLayout.LayoutParams(-1,dp(14)));
     status=label("",14,TEXT);root.addView(status);
-    root.addView(label("หมายเหตุ: V3 กรองมอนสเตอร์และเป้าหมายกลางแมพ • คิลจากภาพยังเป็นเพียงจุดเสนอ ไม่ยืนยันคิลของคุณ 100% • เปิดหน้าจอไว้ตลอดสแกนและเรนเดอร์",13,MUTED));
+    root.addView(label("หมายเหตุ: V4 แก้ V3 ไม่พบคิลด้วยการคืนตัวตรวจแบนเนอร์ V2 • กรองมอนสเตอร์เฉพาะเมื่อพบหลักฐานจากข้อความ • จุดไม่ชัดอาจเป็นมอนสเตอร์/คิลเพื่อน • ตรวจรายการก่อนเรนเดอร์",13,MUTED));
   }
 
   private void setStatus(String s) { status.setText(s); }
@@ -295,7 +295,7 @@ public class MainActivity extends Activity {
     stopScan.set(false);busy=true;scanning=true;refreshButtons();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     progress.setProgress(0);
-    setStatus("V3 เริ่มค้นคิลฮีโร่ศัตรู (ตัดมอนสเตอร์ออก) ทุก 0.4 วินาที…");
+    setStatus("V4 กำลังค้นแบนเนอร์คิลด้วยระบบ V2 ที่แก้ไขแล้ว ทุก 0.4 วินาที…");
     final Uri uri=videoUri;
     final long duration=durationMs;
     worker.execute(()->{
@@ -370,7 +370,7 @@ public class MainActivity extends Activity {
         }
         // Flush a final eligible hero candidate near the end of the clip.
         if(!stopScan.get()) {
-          KillVisionV2.Candidate tail=tracker.finish(duration+KillVisionV2.SAMPLE_INTERVAL_MS);
+          KillVisionV2.Candidate tail=tracker.finish(duration+1600L);
           if(tail!=null) {
             boolean duplicate=false;
             for(KillMark m:detected)
@@ -392,7 +392,7 @@ public class MainActivity extends Activity {
           getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
           progress.setProgress(cancelled?progress.getProgress():100);
           renderMarks();
-          String note="พบจุดคิลฮีโร่ที่เป็นไปได้ "+detected.size()+
+          String note="พบจุดคิลที่เป็นไปได้ "+detected.size()+
             " จุด • ต้องตรวจว่าเป็นคิลของเราก่อนเรนเดอร์";
           if(badFrames>0 || badOcr>0)
              note+=" • ภาพอ่านพลาด "+badFrames+" / OCR พลาด "+badOcr+" เฟรม";
