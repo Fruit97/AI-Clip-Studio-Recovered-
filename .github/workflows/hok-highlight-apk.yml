@@ -6,6 +6,11 @@ on:
       - 'hok-highlight-android/**'
       - '.github/workflows/hok-highlight-apk.yml'
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'hok-highlight-android/**'
+      - '.github/workflows/hok-highlight-apk.yml'
 
 jobs:
   build:
